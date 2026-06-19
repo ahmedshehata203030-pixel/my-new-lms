@@ -36,7 +36,7 @@ def clean_date_string(date_str):
     return None
 
 def force_string(val):
-    if pd.isna(val) or str(val).lower() == 'nan':
+    if pd.isna(val) or str(val).lower() == 'nan' or str(val).strip() == '':
         return ""
     return str(val).strip()
 
@@ -65,31 +65,43 @@ def has_submitted_before(student_name, quiz_title):
 def load_data():
     try:
         lessons_df = pd.read_csv(LESSONS_CSV, dtype=str)
-        # تنظيف مسافات أسماء الأعمدة وتحويلها لحروف صغيرة للمقارنة المرنة
         raw_columns = [str(c).strip() for c in lessons_df.columns]
         normalized_columns = [c.lower().replace("_", "").replace(" ", "") for c in raw_columns]
         
-        # ربط الأعمدة بالأسماء الأصلية في الشيت لمنع مشاكل الـ L1
-        c_title_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "course" in c or "كورس" in c or "دبلوم" in c))]
-        l_title_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "lesson" in c or "درس" in c or "محاضر" in c))]
+        # كاشف ذكي وصارم للوصول للأعمدة الحقيقية بالترتيب
+        c_title_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "course" in c or "كورس" in c or "دبلوم" in c or "وحدة" in c))]
+        l_title_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "lesson" in c or "درس" in c or "محاضر" in c or "عنوان" in c))]
         v_url_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "video" in c or "فيديو" in c or "رابط" in c))]
         p_url_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "pdf" in c or "ملف" in c or "مذكر" in c))]
         
         courses = {}
-        for _, row in lessons_df.iterrows():
+        for idx, row in lessons_df.iterrows():
             c_title = force_string(row.get(c_title_col, ''))
             if not c_title: continue
+            
             if c_title not in courses: courses[c_title] = []
             
-            # قراءة اسم الدرس الفعلي المكتوب في الشيت
             lesson_actual_title = force_string(row.get(l_title_col, ''))
-            if not lesson_actual_title: 
-                lesson_actual_title = f"درس بدون عنوان - {len(courses[c_title])+1}"
+            v_url = force_string(row.get(v_url_col, ''))
+            p_url = force_string(row.get(p_url_col, ''))
+            
+            # فلترة حاسمة: لو مفيش عنوان مكتوب للدرس، ابحث عن الـ ID أو اكتب ترتيبه بدلاً من تركه فارغاً
+            if not lesson_actual_title:
+                lesson_id_col = next((c for c in raw_columns if "id" in c.lower()), None)
+                if lesson_id_col:
+                    lesson_actual_title = force_string(row.get(lesson_id_col, ''))
+            
+            # إذا استمر فارغاً تماماً والسطر كله ليس به روابط، تخطى هذا السطر
+            if not lesson_actual_title and not v_url and not p_url:
+                continue
+                
+            if not lesson_actual_title:
+                lesson_actual_title = f"المحاضرة رقم {len(courses[c_title])+1}"
                 
             courses[c_title].append({
                 "title": lesson_actual_title, 
-                "video": force_string(row.get(v_url_col, '')), 
-                "pdf": force_string(row.get(p_url_col, ''))
+                "video": v_url, 
+                "pdf": p_url
             })
     except: courses = {}
 
@@ -131,7 +143,7 @@ courses_db, quizzes_db = load_data()
 st.header("🎓 بوابة الطالب التعليمية")
 if "current_view" not in st.session_state: st.session_state.current_view = "sharh"
 
-# 🛠️ الـ CSS لإخفاء أزرار جيت هاب والـ Deploy مع الحفاظ على الـ Dark Mode
+# 🛠️ الـ CSS المخصص للمنصة لإخفاء أزرار جيت هاب والـ Deploy
 st.markdown("""
     <style>
     a[href*="github.com"], 
@@ -188,18 +200,19 @@ if st.session_state.current_view == "sharh":
         chosen_course = st.selectbox("اختر الكورس / الدبلومة:", list(courses_db.keys()))
         lessons_available = courses_db[chosen_course]
         
-        # الاختيار بناء على اسم الدرس الفعلي المكتوب بالشيت
-        chosen_lesson = st.selectbox("اختر الدرس المراد مشاهدته:", [l['title'] for l in lessons_available])
-        current_lesson = next(l for l in lessons_available if l['title'] == chosen_lesson)
-        
-        if current_lesson['video']:
-            st.video(current_lesson['video'])
+        if not lessons_available:
+            st.info("👋 قريباً.. سيتم رفع دروس ومحاضرات هذا الكورس.")
+        else:
+            chosen_lesson = st.selectbox("اختر الدرس المراد مشاهدته:", [l['title'] for l in lessons_available])
+            current_lesson = next(l for l in lessons_available if l['title'] == chosen_lesson)
             
-        # 📄 زر الـ PDF الذكي
-        if current_lesson['pdf'] and current_lesson['pdf'].lower() != 'nan' and current_lesson['pdf'].strip() != '':
-            st.markdown("---")
-            st.write("📄 **المرفقات والمذكرات الخاصة بالدرس:**")
-            st.link_button("📂 اضغط هنا لفتح وتحميل ملف الـ PDF", current_lesson['pdf'], use_container_width=True)
+            if current_lesson['video']:
+                st.video(current_lesson['video'])
+                
+            if current_lesson['pdf']:
+                st.markdown("---")
+                st.write("📄 **المرفقات والمذكرات الخاصة بالدرس:**")
+                st.link_button("📂 اضغط هنا لفتح وتحميل ملف الـ PDF", current_lesson['pdf'], use_container_width=True)
 
 elif st.session_state.current_view == "quiz":
     st.subheader("📝 قسم الامتحانات والتقييمات الذكية")
@@ -238,7 +251,6 @@ elif st.session_state.current_view == "quiz":
             if not student_name:
                 st.warning("⚠️ يجب كتابة اسمك أولاً لتتمكن من حل الامتحان ورصد النتيجة.")
             else:
-                # 🚫 منع تكرار الدخول الفورية بناء على شيت student_results
                 if has_submitted_before(student_name, chosen_quiz):
                     st.error(f"❌ عذراً يا {student_name}، لقد قمت بأداء هذا الاختبار مسبقاً! غير مسموح بالدخول مرة أخرى.")
                 else:
@@ -280,7 +292,6 @@ elif st.session_state.current_view == "quiz":
                                     
                             score = int((correct_count / len(questions)) * 100)
                             
-                            # 🔗 [2] رابط تطبيق الويب الخاص بك (EXEC) لارسال النتائج تلقائياً للشيت
                             WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxB72pq4-UUV_N9NOUdZgaCqBYj6x3p2RcPXoY1CDPmCgvo_4yFMEdirZ_nK_c_S8fcPw/exec"
                             
                             payload = {
