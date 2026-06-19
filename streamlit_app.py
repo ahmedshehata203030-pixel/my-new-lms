@@ -82,7 +82,7 @@ def load_data():
         quizzes = {}
     return courses, quizzes
 
-st.set_page_config(page_title=" منصة الاستاذ ", layout="wide")
+st.set_page_config(page_title=" منصتي التعليمية ", layout="wide")
 st.cache_data.clear()
 courses_db, quizzes_db = load_data()
 
@@ -141,9 +141,9 @@ with box_quiz:
 st.markdown("---")
 
 if st.session_state.current_view == "sharh":
-    st.subheader("📺 قسم المحاضرات وفيديوهات الشرح")
+    st.subheader("📺 قسم الدروس وفيديوهات الشرح")
     if courses_db:
-        chosen_course = st.selectbox("اختر الكورس / الدبلومة:", list(courses_db.keys()))
+        chosen_course = st.selectbox("اختر الوحدة:", list(courses_db.keys()))
         lessons_available = courses_db[chosen_course]
         chosen_lesson = st.selectbox("اختر الدرس المراد مشاهدته:", [l['title'] for l in lessons_available])
         current_lesson = next(l for l in lessons_available if l['title'] == chosen_lesson)
