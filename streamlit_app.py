@@ -12,6 +12,8 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/11sa1GDAYCez4b17aI1hDPKJDtfj
 # كسر كاش السيرفر لضمان قراءة البيانات اللحظية من الشيت
 LESSONS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=lessons&v={int(time.time())}")
 QUIZZES_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=quizzes&v={int(time.time())}")
+# شيت رصد الدرجات للتحقق من عدم تكرار الدخول
+ANSWERS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=Sheet1&v={int(time.time())}")
 
 def clean_date_string(date_str):
     if not date_str or pd.isna(date_str) or str(date_str).lower() == 'nan' or str(date_str).strip() == '':
@@ -37,15 +39,39 @@ def force_string(val):
         return ""
     return str(val).strip()
 
+def has_submitted_before(student_name, quiz_title):
+    try:
+        answers_df = pd.read_csv(ANSWERS_CSV, dtype=str)
+        answers_df.columns = [str(c).strip().lower() for c in answers_df.columns]
+        
+        # تحويل الأسماء لتجنب المسافات الزائدة
+        s_name = "".join(student_name.split()).lower()
+        q_title = "".join(quiz_title.split()).lower()
+        
+        for _, row in answers_df.iterrows():
+            row_student = "".join(force_string(row.get('student_name', '')).split()).lower()
+            row_quiz = "".join(force_string(row.get('quiz_title', '')).split()).lower()
+            
+            if row_student == s_name and row_quiz == q_title:
+                return True
+    except:
+        pass
+    return False
+
 def load_data():
     try:
         lessons_df = pd.read_csv(LESSONS_CSV, dtype=str)
+        lessons_df.columns = [str(c).strip().lower() for c in lessons_df.columns]
         courses = {}
         for _, row in lessons_df.iterrows():
-            c_title = force_string(row['course_title'])
+            c_title = force_string(row.get('course_title', ''))
             if not c_title: continue
             if c_title not in courses: courses[c_title] = []
-            courses[c_title].append({"title": row['lesson_title'], "video": row['video_url'], "pdf": row['pdf_url']})
+            courses[c_title].append({
+                "title": force_string(row.get('lesson_title', '')), 
+                "video": force_string(row.get('video_url', '')), 
+                "pdf": force_string(row.get('pdf_url', ''))
+            })
     except: courses = {}
 
     try:
@@ -82,14 +108,14 @@ def load_data():
         quizzes = {}
     return courses, quizzes
 
-st.set_page_config(page_title=" منصتي التعليمية ", layout="wide")
+st.set_page_config(page_title="منصتي التعليمية", layout="wide")
 st.cache_data.clear()
 courses_db, quizzes_db = load_data()
 
 st.header("🎓 بوابة الطالب التعليمية")
 if "current_view" not in st.session_state: st.session_state.current_view = "sharh"
 
-# 🛠️ الـ CSS لحذف علامات جيت هاب والـ Deploy مع الحفاظ التام على الـ Dark mode والثلاث نقط
+# 🛠️ الـ CSS الذكي لتهيئة الواجهة وإخفاء أزرار المنصة الافتراضية
 st.markdown("""
     <style>
     a[href*="github.com"], 
@@ -147,7 +173,15 @@ if st.session_state.current_view == "sharh":
         lessons_available = courses_db[chosen_course]
         chosen_lesson = st.selectbox("اختر الدرس المراد مشاهدته:", [l['title'] for l in lessons_available])
         current_lesson = next(l for l in lessons_available if l['title'] == chosen_lesson)
-        st.video(current_lesson['video'])
+        
+        if current_lesson['video']:
+            st.video(current_lesson['video'])
+            
+        # 📄 ميزة عرض وتحميل الـ PDF الجديدة
+        if current_lesson['pdf'] and current_lesson['pdf'].lower() != 'nan' and current_lesson['pdf'].strip() != '':
+            st.markdown("---")
+            st.write("📄 **المرفقات والمذكرات الخاصة بالدرس:**")
+            st.link_button("📂 اضغط هنا لفتح وتحميل ملف الـ PDF", current_lesson['pdf'], use_container_width=True)
 
 elif st.session_state.current_view == "quiz":
     st.subheader("📝 قسم الامتحانات والتقييمات الذكية")
@@ -186,55 +220,59 @@ elif st.session_state.current_view == "quiz":
             if not student_name:
                 st.warning("⚠️ يجب كتابة اسمك أولاً لتتمكن من حل الامتحان ورصد النتيجة.")
             else:
-                session_key = f"start_{chosen_quiz}"
-                if session_key not in st.session_state:
-                    st.session_state[session_key] = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
-                    
-                with st.form(key=f"quiz_form_{chosen_quiz}"):
-                    st.markdown(f"### 📋 {chosen_quiz}")
-                    st.info(f"👤 الطالب: {student_name} | 🕒 وقت الدخول: {st.session_state[session_key]}")
-                    
-                    student_answers = {}
-                    for i, q in enumerate(questions):
-                        st.write(f"**سؤال {i+1}: {q['question']}**")
+                # 🚫 ميزة منع تكرار الدخول الفورية
+                if has_submitted_before(student_name, chosen_quiz):
+                    st.error(f"❌ عذراً يا {student_name}، لقد قمت بأداء هذا الاختبار مسبقاً! غير مسموح بالدخول مرة أخرى.")
+                else:
+                    session_key = f"start_{chosen_quiz}"
+                    if session_key not in st.session_state:
+                        st.session_state[session_key] = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
                         
-                        display_options = []
-                        letters = ["A", "B", "C", "D"]
-                        for idx, letter in enumerate(letters):
-                            opt_text = str(q['options'][idx]).strip()
-                            if opt_text != "" and opt_text.lower() != 'nan':
-                                display_options.append(f"{letter} - {opt_text}")
-                            else:
-                                display_options.append(letter)
+                    with st.form(key=f"quiz_form_{chosen_quiz}"):
+                        st.markdown(f"### 📋 {chosen_quiz}")
+                        st.info(f"👤 الطالب: {student_name} | 🕒 وقت الدخول: {st.session_state[session_key]}")
                         
-                        student_answers[i] = st.radio(
-                            "اختر الإجابة:", 
-                            options=display_options,
-                            key=f"quiz_radio_q_{i}_{chosen_quiz}"
-                        )
-                    
-                    if st.form_submit_button("📥 إرسال الإجابات وإنهاء الامتحان"):
-                        submit_time = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
-                        
-                        correct_count = 0
+                        student_answers = {}
                         for i, q in enumerate(questions):
-                            selected_letter = str(student_answers[i]).split(" - ")[0].strip().upper()
-                            if selected_letter == str(q['correct']).strip().upper():
-                                correct_count += 1
-                                
-                        score = int((correct_count / len(questions)) * 100)
+                            st.write(f"**سؤال {i+1}: {q['question']}**")
+                            
+                            display_options = []
+                            letters = ["A", "B", "C", "D"]
+                            for idx, letter in enumerate(letters):
+                                opt_text = str(q['options'][idx]).strip()
+                                if opt_text != "" and opt_text.lower() != 'nan':
+                                    display_options.append(f"{letter} - {opt_text}")
+                                else:
+                                    display_options.append(letter)
+                            
+                            student_answers[i] = st.radio(
+                                "اختر الإجابة:", 
+                                options=display_options,
+                                key=f"quiz_radio_q_{i}_{chosen_quiz}"
+                            )
                         
-                        # 🔗 [2] رابط تطبيق الويب الخاص بك (EXEC) لارسال النتائج تلقائياً للشيت
-                        WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxB72pq4-UUV_N9NOUdZgaCqBYj6x3p2RcPXoY1CDPmCgvo_4yFMEdirZ_nK_c_S8fcPw/exec"
-                        
-                        payload = {
-                            "student_name": student_name, "quiz_title": chosen_quiz, "score": score,
-                            "start_time": st.session_state[session_key], "submit_time": submit_time
-                        }
-                        try: requests.post(WEB_APP_URL, json=payload)
-                        except: pass
-                        
-                        st.markdown("---")
-                        if score >= 50: st.success(f"🎉 ممتاز يا {student_name}! درجتك: {score}%")
-                        else: st.error(f"😞 للأسف يا {student_name} درجتك: {score}%.")
-                        st.balloons()
+                        if st.form_submit_button("📥 إرسال الإجابات وإنهاء الامتحان"):
+                            submit_time = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
+                            
+                            correct_count = 0
+                            for i, q in enumerate(questions):
+                                selected_letter = str(student_answers[i]).split(" - ")[0].strip().upper()
+                                if selected_letter == str(q['correct']).strip().upper():
+                                    correct_count += 1
+                                    
+                            score = int((correct_count / len(questions)) * 100)
+                            
+                            # 🔗 [2] رابط تطبيق الويب الخاص بك (EXEC) لارسال النتائج تلقائياً للشيت
+                            WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxB72pq4-UUV_N9NOUdZgaCqBYj6x3p2RcPXoY1CDPmCgvo_4yFMEdirZ_nK_c_S8fcPw/exec"
+                            
+                            payload = {
+                                "student_name": student_name, "quiz_title": chosen_quiz, "score": score,
+                                "start_time": st.session_state[session_key], "submit_time": submit_time
+                            }
+                            try: requests.post(WEB_APP_URL, json=payload)
+                            except: pass
+                            
+                            st.markdown("---")
+                            if score >= 50: st.success(f"🎉 ممتاز يا {student_name}! درجتك: {score}%")
+                            else: st.error(f"😞 للأسف يا {student_name} درجتك: {score}%.")
+                            st.balloons()
