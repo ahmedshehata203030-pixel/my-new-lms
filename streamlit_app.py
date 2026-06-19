@@ -13,8 +13,8 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/11sa1GDAYCez4b17aI1hDPKJDtfj
 LESSONS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=lessons&v={int(time.time())}")
 QUIZZES_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=quizzes&v={int(time.time())}")
 
-# ⚠️ هنا الكود هيقرأ تلقائياً من أول تبويب (أول ورقة بتنزل فيها الدرجات) أياً كان اسمها (عربي أو إنجليزي)
-ANSWERS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&v={int(time.time())}")
+# 🔒 الربط الحرفي والمباشر بتبويب الرصد الصحيح لقفل التكرار تماماً
+ANSWERS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=student_results&v={int(time.time())}")
 
 def clean_date_string(date_str):
     if not date_str or pd.isna(date_str) or str(date_str).lower() == 'nan' or str(date_str).strip() == '':
@@ -42,16 +42,12 @@ def force_string(val):
 
 def has_submitted_before(student_name, quiz_title):
     try:
-        # قراءة شيت الإجابات
         answers_df = pd.read_csv(ANSWERS_CSV, dtype=str)
-        # توحيد أسماء الأعمدة لحروف صغيرة وبدون مسافات
-        answers_df.columns = [str(c).strip().lower().replace("_", "") for c in answers_df.columns]
+        answers_df.columns = [str(c).strip().lower().replace("_", "").replace(" ", "") for c in answers_df.columns]
         
-        # تنظيف الاسم المدخل والامتحان لمقارنة عادلة بدون مسافات
         s_name = "".join(student_name.split()).lower()
         q_title = "".join(quiz_title.split()).lower()
         
-        # البحث عن العمود الصحيح للاسم والامتحان
         name_col = next((c for c in answers_df.columns if "student" in c or "اسم" in c), None)
         quiz_col = next((c for c in answers_df.columns if "quiz" in c or "امتحان" in c or "اختبار" in c), None)
         
@@ -72,7 +68,6 @@ def load_data():
         lessons_df.columns = [str(c).strip().lower().replace("_", "") for c in lessons_df.columns]
         courses = {}
         for _, row in lessons_df.iterrows():
-            # البحث عن الأعمدة ديناميكياً
             c_title_col = next((c for c in lessons_df.columns if "course" in c or "كورس" in c or "دبلوم" in c), 'coursetitle')
             l_title_col = next((c for c in lessons_df.columns if "lesson" in c or "درس" in c or "محاضر" in c), 'lessontitle')
             v_url_col = next((c for c in lessons_df.columns if "video" in c or "فيديو" in c or "رابط" in c), 'videourl')
@@ -230,7 +225,7 @@ elif st.session_state.current_view == "quiz":
             if not student_name:
                 st.warning("⚠️ يجب كتابة اسمك أولاً لتتمكن من حل الامتحان ورصد النتيجة.")
             else:
-                # 🚫 ميزة منع تكرار الدخول الفورية
+                # 🚫 منع تكرار الدخول الفورية بناء على شيت student_results الصحيح
                 if has_submitted_before(student_name, chosen_quiz):
                     st.error(f"❌ عذراً يا {student_name}، لقد قمت بأداء هذا الاختبار مسبقاً! غير مسموح بالدخول مرة أخرى.")
                 else:
