@@ -197,11 +197,11 @@ st.markdown("---")
 if st.session_state.current_view == "sharh":
     st.subheader("📺 قسم المحاضرات وفيديوهات الشرح")
     if courses_db:
-        chosen_course = st.selectbox("اختر الكورس / الدبلومة:", list(courses_db.keys()))
+        chosen_course = st.selectbox("اختر الوحدة:", list(courses_db.keys()))
         lessons_available = courses_db[chosen_course]
         
         if not lessons_available:
-            st.info("👋 قريباً.. سيتم رفع دروس ومحاضرات هذا الكورس.")
+            st.info("👋 قريباً.. سيتم رفع الدروس والمحتوي  .")
         else:
             chosen_lesson = st.selectbox("اختر الدرس المراد مشاهدته:", [l['title'] for l in lessons_available])
             current_lesson = next(l for l in lessons_available if l['title'] == chosen_lesson)
