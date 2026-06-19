@@ -12,8 +12,9 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/11sa1GDAYCez4b17aI1hDPKJDtfj
 # كسر كاش السيرفر لضمان قراءة البيانات اللحظية من الشيت
 LESSONS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=lessons&v={int(time.time())}")
 QUIZZES_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=quizzes&v={int(time.time())}")
-# شيت رصد الدرجات للتحقق من عدم تكرار الدخول
-ANSWERS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=Sheet1&v={int(time.time())}")
+
+# ⚠️ هنا الكود هيقرأ تلقائياً من أول تبويب (أول ورقة بتنزل فيها الدرجات) أياً كان اسمها (عربي أو إنجليزي)
+ANSWERS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&v={int(time.time())}")
 
 def clean_date_string(date_str):
     if not date_str or pd.isna(date_str) or str(date_str).lower() == 'nan' or str(date_str).strip() == '':
@@ -41,19 +42,26 @@ def force_string(val):
 
 def has_submitted_before(student_name, quiz_title):
     try:
+        # قراءة شيت الإجابات
         answers_df = pd.read_csv(ANSWERS_CSV, dtype=str)
-        answers_df.columns = [str(c).strip().lower() for c in answers_df.columns]
+        # توحيد أسماء الأعمدة لحروف صغيرة وبدون مسافات
+        answers_df.columns = [str(c).strip().lower().replace("_", "") for c in answers_df.columns]
         
-        # تحويل الأسماء لتجنب المسافات الزائدة
+        # تنظيف الاسم المدخل والامتحان لمقارنة عادلة بدون مسافات
         s_name = "".join(student_name.split()).lower()
         q_title = "".join(quiz_title.split()).lower()
         
-        for _, row in answers_df.iterrows():
-            row_student = "".join(force_string(row.get('student_name', '')).split()).lower()
-            row_quiz = "".join(force_string(row.get('quiz_title', '')).split()).lower()
-            
-            if row_student == s_name and row_quiz == q_title:
-                return True
+        # البحث عن العمود الصحيح للاسم والامتحان
+        name_col = next((c for c in answers_df.columns if "student" in c or "اسم" in c), None)
+        quiz_col = next((c for c in answers_df.columns if "quiz" in c or "امتحان" in c or "اختبار" in c), None)
+        
+        if name_col and quiz_col:
+            for _, row in answers_df.iterrows():
+                row_student = "".join(force_string(row.get(name_col, '')).split()).lower()
+                row_quiz = "".join(force_string(row.get(quiz_col, '')).split()).lower()
+                
+                if row_student == s_name and row_quiz == q_title:
+                    return True
     except:
         pass
     return False
@@ -61,48 +69,50 @@ def has_submitted_before(student_name, quiz_title):
 def load_data():
     try:
         lessons_df = pd.read_csv(LESSONS_CSV, dtype=str)
-        lessons_df.columns = [str(c).strip().lower() for c in lessons_df.columns]
+        lessons_df.columns = [str(c).strip().lower().replace("_", "") for c in lessons_df.columns]
         courses = {}
         for _, row in lessons_df.iterrows():
-            c_title = force_string(row.get('course_title', ''))
+            # البحث عن الأعمدة ديناميكياً
+            c_title_col = next((c for c in lessons_df.columns if "course" in c or "كورس" in c or "دبلوم" in c), 'coursetitle')
+            l_title_col = next((c for c in lessons_df.columns if "lesson" in c or "درس" in c or "محاضر" in c), 'lessontitle')
+            v_url_col = next((c for c in lessons_df.columns if "video" in c or "فيديو" in c or "رابط" in c), 'videourl')
+            p_url_col = next((c for c in lessons_df.columns if "pdf" in c or "ملف" in c or "مذكر" in c), 'pdfurl')
+            
+            c_title = force_string(row.get(c_title_col, ''))
             if not c_title: continue
             if c_title not in courses: courses[c_title] = []
             courses[c_title].append({
-                "title": force_string(row.get('lesson_title', '')), 
-                "video": force_string(row.get('video_url', '')), 
-                "pdf": force_string(row.get('pdf_url', ''))
+                "title": force_string(row.get(l_title_col, '')), 
+                "video": force_string(row.get(v_url_col, '')), 
+                "pdf": force_string(row.get(p_url_col, ''))
             })
     except: courses = {}
 
     try:
         quizzes_df = pd.read_csv(QUIZZES_CSV, dtype=str)
-        quizzes_df.columns = [str(c).strip().lower() for c in quizzes_df.columns]
+        quizzes_df.columns = [str(c).strip().lower().replace("_", "") for c in quizzes_df.columns]
         
         quizzes = {}
         for _, row in quizzes_df.iterrows():
-            q_title = force_string(row.get('quiz_title', ''))
+            q_title_col = next((c for c in quizzes_df.columns if "quiz" in c or "امتحان" in c or "اختبار" in c), 'quiztitle')
+            q_title = force_string(row.get(q_title_col, ''))
             if not q_title: continue
             
             if q_title not in quizzes: quizzes[q_title] = []
             
-            question_text = force_string(row.get('question_text', ''))
-            opt_a = force_string(row.get('opta', ''))
-            opt_b = force_string(row.get('optb', ''))
-            opt_c = force_string(row.get('optc', ''))
-            opt_d = force_string(row.get('optd', ''))
-            
-            correct_val = force_string(row.get('correct_opt', '')).upper()
-            correct_letter = correct_val[-1] if correct_val.startswith('OPT') else correct_val
-            
-            start_val = row.get('start_at', None)
-            end_val = row.get('end_at', None)
+            q_text_col = next((c for c in quizzes_df.columns if "question" in c or "سؤال" in c or "السين" in c), 'questiontext')
             
             quizzes[q_title].append({
-                "question": question_text,
-                "options": [opt_a, opt_b, opt_c, opt_d],
-                "correct": correct_letter,
-                "start_at": start_val,
-                "end_at": end_val
+                "question": force_string(row.get(q_text_col, '')),
+                "options": [
+                    force_string(row.get('opta', '')),
+                    force_string(row.get('optb', '')),
+                    force_string(row.get('optc', '')),
+                    force_string(row.get('optd', ''))
+                ],
+                "correct": force_string(row.get('correctopt', '')).upper()[-1] if force_string(row.get('correctopt', '')).upper().startswith('OPT') else force_string(row.get('correctopt', '')).upper(),
+                "start_at": row.get('startat', None),
+                "end_at": row.get('endat', None)
             })
     except: 
         quizzes = {}
@@ -115,7 +125,7 @@ courses_db, quizzes_db = load_data()
 st.header("🎓 بوابة الطالب التعليمية")
 if "current_view" not in st.session_state: st.session_state.current_view = "sharh"
 
-# 🛠️ الـ CSS الذكي لتهيئة الواجهة وإخفاء أزرار المنصة الافتراضية
+# 🛠️ الـ CSS لإخفاء أزرار جيت هاب والـ Deploy مع الحفاظ على الـ Dark Mode
 st.markdown("""
     <style>
     a[href*="github.com"], 
@@ -167,9 +177,9 @@ with box_quiz:
 st.markdown("---")
 
 if st.session_state.current_view == "sharh":
-    st.subheader("📺 قسم الدروس وفيديوهات الشرح")
+    st.subheader("📺 قسم المحاضرات وفيديوهات الشرح")
     if courses_db:
-        chosen_course = st.selectbox("اختر الوحدة:", list(courses_db.keys()))
+        chosen_course = st.selectbox("اختر الكورس / الدبلومة:", list(courses_db.keys()))
         lessons_available = courses_db[chosen_course]
         chosen_lesson = st.selectbox("اختر الدرس المراد مشاهدته:", [l['title'] for l in lessons_available])
         current_lesson = next(l for l in lessons_available if l['title'] == chosen_lesson)
@@ -177,7 +187,7 @@ if st.session_state.current_view == "sharh":
         if current_lesson['video']:
             st.video(current_lesson['video'])
             
-        # 📄 ميزة عرض وتحميل الـ PDF الجديدة
+        # 📄 زر الـ PDF الذكي
         if current_lesson['pdf'] and current_lesson['pdf'].lower() != 'nan' and current_lesson['pdf'].strip() != '':
             st.markdown("---")
             st.write("📄 **المرفقات والمذكرات الخاصة بالدرس:**")
