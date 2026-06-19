@@ -82,7 +82,7 @@ def load_data():
         quizzes = {}
     return courses, quizzes
 
-st.set_page_config(page_title="منصتي التعليمية", layout="wide")
+st.set_page_config(page_title=" منصة الاستاذ ", layout="wide")
 st.cache_data.clear()
 courses_db, quizzes_db = load_data()
 
