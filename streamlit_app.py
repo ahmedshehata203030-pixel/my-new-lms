@@ -65,19 +65,29 @@ def has_submitted_before(student_name, quiz_title):
 def load_data():
     try:
         lessons_df = pd.read_csv(LESSONS_CSV, dtype=str)
-        lessons_df.columns = [str(c).strip().lower().replace("_", "") for c in lessons_df.columns]
+        # تنظيف مسافات أسماء الأعمدة وتحويلها لحروف صغيرة للمقارنة المرنة
+        raw_columns = [str(c).strip() for c in lessons_df.columns]
+        normalized_columns = [c.lower().replace("_", "").replace(" ", "") for c in raw_columns]
+        
+        # ربط الأعمدة بالأسماء الأصلية في الشيت لمنع مشاكل الـ L1
+        c_title_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "course" in c or "كورس" in c or "دبلوم" in c))]
+        l_title_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "lesson" in c or "درس" in c or "محاضر" in c))]
+        v_url_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "video" in c or "فيديو" in c or "رابط" in c))]
+        p_url_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "pdf" in c or "ملف" in c or "مذكر" in c))]
+        
         courses = {}
         for _, row in lessons_df.iterrows():
-            c_title_col = next((c for c in lessons_df.columns if "course" in c or "كورس" in c or "دبلوم" in c), 'coursetitle')
-            l_title_col = next((c for c in lessons_df.columns if "lesson" in c or "درس" in c or "محاضر" in c), 'lessontitle')
-            v_url_col = next((c for c in lessons_df.columns if "video" in c or "فيديو" in c or "رابط" in c), 'videourl')
-            p_url_col = next((c for c in lessons_df.columns if "pdf" in c or "ملف" in c or "مذكر" in c), 'pdfurl')
-            
             c_title = force_string(row.get(c_title_col, ''))
             if not c_title: continue
             if c_title not in courses: courses[c_title] = []
+            
+            # قراءة اسم الدرس الفعلي المكتوب في الشيت
+            lesson_actual_title = force_string(row.get(l_title_col, ''))
+            if not lesson_actual_title: 
+                lesson_actual_title = f"درس بدون عنوان - {len(courses[c_title])+1}"
+                
             courses[c_title].append({
-                "title": force_string(row.get(l_title_col, '')), 
+                "title": lesson_actual_title, 
                 "video": force_string(row.get(v_url_col, '')), 
                 "pdf": force_string(row.get(p_url_col, ''))
             })
@@ -85,25 +95,26 @@ def load_data():
 
     try:
         quizzes_df = pd.read_csv(QUIZZES_CSV, dtype=str)
-        quizzes_df.columns = [str(c).strip().lower().replace("_", "") for c in quizzes_df.columns]
+        raw_q_columns = [str(c).strip() for c in quizzes_df.columns]
+        norm_q_columns = [c.lower().replace("_", "").replace(" ", "") for c in raw_q_columns]
+        
+        q_title_col = raw_q_columns[norm_q_columns.index(next(c for c in norm_q_columns if "quiz" in c or "امتحان" in c or "اختبار" in c))]
+        q_text_col = raw_q_columns[norm_q_columns.index(next(c for c in norm_q_columns if "question" in c or "سؤال" in c or "السين" in c))]
         
         quizzes = {}
         for _, row in quizzes_df.iterrows():
-            q_title_col = next((c for c in quizzes_df.columns if "quiz" in c or "امتحان" in c or "اختبار" in c), 'quiztitle')
             q_title = force_string(row.get(q_title_col, ''))
             if not q_title: continue
             
             if q_title not in quizzes: quizzes[q_title] = []
             
-            q_text_col = next((c for c in quizzes_df.columns if "question" in c or "سؤال" in c or "السين" in c), 'questiontext')
-            
             quizzes[q_title].append({
                 "question": force_string(row.get(q_text_col, '')),
                 "options": [
-                    force_string(row.get('opta', '')),
-                    force_string(row.get('optb', '')),
-                    force_string(row.get('optc', '')),
-                    force_string(row.get('optd', ''))
+                    force_string(row.get('opta', '') if 'opta' in norm_q_columns else row.get('opt_a', '')),
+                    force_string(row.get('optb', '') if 'optb' in norm_q_columns else row.get('opt_b', '')),
+                    force_string(row.get('optc', '') if 'optc' in norm_q_columns else row.get('opt_c', '')),
+                    force_string(row.get('optd', '') if 'optd' in norm_q_columns else row.get('opt_d', ''))
                 ],
                 "correct": force_string(row.get('correctopt', '')).upper()[-1] if force_string(row.get('correctopt', '')).upper().startswith('OPT') else force_string(row.get('correctopt', '')).upper(),
                 "start_at": row.get('startat', None),
@@ -176,6 +187,8 @@ if st.session_state.current_view == "sharh":
     if courses_db:
         chosen_course = st.selectbox("اختر الكورس / الدبلومة:", list(courses_db.keys()))
         lessons_available = courses_db[chosen_course]
+        
+        # الاختيار بناء على اسم الدرس الفعلي المكتوب بالشيت
         chosen_lesson = st.selectbox("اختر الدرس المراد مشاهدته:", [l['title'] for l in lessons_available])
         current_lesson = next(l for l in lessons_available if l['title'] == chosen_lesson)
         
@@ -225,7 +238,7 @@ elif st.session_state.current_view == "quiz":
             if not student_name:
                 st.warning("⚠️ يجب كتابة اسمك أولاً لتتمكن من حل الامتحان ورصد النتيجة.")
             else:
-                # 🚫 منع تكرار الدخول الفورية بناء على شيت student_results الصحيح
+                # 🚫 منع تكرار الدخول الفورية بناء على شيت student_results
                 if has_submitted_before(student_name, chosen_quiz):
                     st.error(f"❌ عذراً يا {student_name}، لقد قمت بأداء هذا الاختبار مسبقاً! غير مسموح بالدخول مرة أخرى.")
                 else:
