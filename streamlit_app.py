@@ -12,6 +12,8 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/11sa1GDAYCez4b17aI1hDPKJDtfj
 # كسر كاش السيرفر لضمان قراءة البيانات اللحظية من الشيت
 LESSONS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=lessons&v={int(time.time())}")
 QUIZZES_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=quizzes&v={int(time.time())}")
+
+# 🔒 الربط الحرفي والمباشر بتبويب الرصد الصحيح لقفل التكرار تماماً
 ANSWERS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=student_results&v={int(time.time())}")
 
 def clean_date_string(date_str):
@@ -42,17 +44,22 @@ def has_submitted_before(student_name, quiz_title):
     try:
         answers_df = pd.read_csv(ANSWERS_CSV, dtype=str)
         answers_df.columns = [str(c).strip().lower().replace("_", "").replace(" ", "") for c in answers_df.columns]
+        
         s_name = "".join(student_name.split()).lower()
         q_title = "".join(quiz_title.split()).lower()
+        
         name_col = next((c for c in answers_df.columns if "student" in c or "اسم" in c), None)
         quiz_col = next((c for c in answers_df.columns if "quiz" in c or "امتحان" in c or "اختبار" in c), None)
+        
         if name_col and quiz_col:
             for _, row in answers_df.iterrows():
                 row_student = "".join(force_string(row.get(name_col, '')).split()).lower()
                 row_quiz = "".join(force_string(row.get(quiz_col, '')).split()).lower()
+                
                 if row_student == s_name and row_quiz == q_title:
                     return True
-    except: pass
+    except:
+        pass
     return False
 
 def load_data():
@@ -61,6 +68,7 @@ def load_data():
         raw_columns = [str(c).strip() for c in lessons_df.columns]
         normalized_columns = [c.lower().replace("_", "").replace(" ", "") for c in raw_columns]
         
+        # كاشف ذكي وصارم للوصول للأعمدة الحقيقية بالترتيب
         c_title_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "course" in c or "كورس" in c or "دبلوم" in c or "وحدة" in c))]
         l_title_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "lesson" in c or "درس" in c or "محاضر" in c or "عنوان" in c))]
         v_url_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "video" in c or "فيديو" in c or "رابط" in c))]
@@ -70,26 +78,38 @@ def load_data():
         for idx, row in lessons_df.iterrows():
             c_title = force_string(row.get(c_title_col, ''))
             if not c_title: continue
+            
             if c_title not in courses: courses[c_title] = []
             
             lesson_actual_title = force_string(row.get(l_title_col, ''))
             v_url = force_string(row.get(v_url_col, ''))
             p_url = force_string(row.get(p_url_col, ''))
             
+            # فلترة حاسمة: لو مفيش عنوان مكتوب للدرس، ابحث عن الـ ID أو اكتب ترتيبه بدلاً من تركه فارغاً
             if not lesson_actual_title:
                 lesson_id_col = next((c for c in raw_columns if "id" in c.lower()), None)
-                if lesson_id_col: lesson_actual_title = force_string(row.get(lesson_id_col, ''))
+                if lesson_id_col:
+                    lesson_actual_title = force_string(row.get(lesson_id_col, ''))
             
-            if not lesson_actual_title and not v_url and not p_url: continue
-            if not lesson_actual_title: lesson_actual_title = f"المحاضرة رقم {len(courses[c_title])+1}"
+            # إذا استمر فارغاً تماماً والسطر كله ليس به روابط، تخطى هذا السطر
+            if not lesson_actual_title and not v_url and not p_url:
+                continue
                 
-            courses[c_title].append({"title": lesson_actual_title, "video": v_url, "pdf": p_url})
+            if not lesson_actual_title:
+                lesson_actual_title = f"المحاضرة رقم {len(courses[c_title])+1}"
+                
+            courses[c_title].append({
+                "title": lesson_actual_title, 
+                "video": v_url, 
+                "pdf": p_url
+            })
     except: courses = {}
 
     try:
         quizzes_df = pd.read_csv(QUIZZES_CSV, dtype=str)
         raw_q_columns = [str(c).strip() for c in quizzes_df.columns]
         norm_q_columns = [c.lower().replace("_", "").replace(" ", "") for c in raw_q_columns]
+        
         q_title_col = raw_q_columns[norm_q_columns.index(next(c for c in norm_q_columns if "quiz" in c or "امتحان" in c or "اختبار" in c))]
         q_text_col = raw_q_columns[norm_q_columns.index(next(c for c in norm_q_columns if "question" in c or "سؤال" in c or "السين" in c))]
         
@@ -97,7 +117,9 @@ def load_data():
         for _, row in quizzes_df.iterrows():
             q_title = force_string(row.get(q_title_col, ''))
             if not q_title: continue
+            
             if q_title not in quizzes: quizzes[q_title] = []
+            
             quizzes[q_title].append({
                 "question": force_string(row.get(q_text_col, '')),
                 "options": [
@@ -107,73 +129,61 @@ def load_data():
                     force_string(row.get('optd', '') if 'optd' in norm_q_columns else row.get('opt_d', ''))
                 ],
                 "correct": force_string(row.get('correctopt', '')).upper()[-1] if force_string(row.get('correctopt', '')).upper().startswith('OPT') else force_string(row.get('correctopt', '')).upper(),
-                "start_at": row.get('startat', None), "end_at": row.get('endat', None)
+                "start_at": row.get('startat', None),
+                "end_at": row.get('endat', None)
             })
-    except: quizzes = {}
+    except: 
+        quizzes = {}
     return courses, quizzes
 
 st.set_page_config(page_title="منصتي التعليمية", layout="wide")
-
-# 🌓 [إعداد ميزة تغيير المود الذكي]
-if "app_theme" not in st.session_state:
-    st.session_state.app_theme = "🌙 مظلم (Dark)"
-
-# شريط جانبي خفيف لاختيار المود
-with st.sidebar:
-    st.write("### 🌓 مظهر المنصة")
-    theme_choice = st.selectbox("اختر وضع الإضاءة المفضل:", ["🌙 مظلم (Dark)", "☀️ مضيء (Light)"], index=0 if st.session_state.app_theme == "🌙 مظلم (Dark)" else 1)
-    st.session_state.app_theme = theme_choice
-
 st.cache_data.clear()
 courses_db, quizzes_db = load_data()
 
 st.header("🎓 بوابة الطالب التعليمية")
 if "current_view" not in st.session_state: st.session_state.current_view = "sharh"
 
-# 🎨 تطبيق الـ CSS بناءً على المود المختار
-if st.session_state.app_theme == "🌙 مظلم (Dark)":
-    bg_color = "#0E1117"
-    text_color = "#FFFFFF"
-    btn_sharh_color = "#1A365D"
-    btn_quiz_color = "#064E3B"
-    input_bg = "#262730"
-else:
-    bg_color = "#FFFFFF"
-    text_color = "#111111"
-    btn_sharh_color = "#2B6CB0"
-    btn_quiz_color = "#319795"
-    input_bg = "#F0F2F6"
-
-st.markdown(f"""
+# 🛠️ الـ CSS المخصص للمنصة لإخفاء أزرار جيت هاب والـ Deploy
+st.markdown("""
     <style>
-    /* تعديل الخلفية العامة والنصوص للمنصة كاملة */
-    .stApp {{
-        background-color: {bg_color} !important;
-        color: {text_color} !important;
-    }}
-    h1, h2, h3, h4, h5, h6, p, label, .stMarkdown {{
-        color: {text_color} !important;
-    }}
-    /* إخفاء أزرار جيت هاب والـ Deploy */
-    a[href*="github.com"], button[title="View source"], .stAppDeployButton,
-    [class*="viewerBadge"], .viewerBadge_link__1S137, [data-testid="stActionButton"] {{
-        display: none !important; visibility: hidden !important;
-    }}
-    /* تنسيق أزرار التنقل الرئيسية الكبيرة */
-    div[data-testid="stHorizontalBlock"] {{ 
-        display: flex !important; justify-content: center !important; gap: 25px !important; 
-    }}
-    div.stButton > button {{ 
-        width: 100% !important; height: 110px !important; 
-        font-size: 26px !important; font-weight: bold !important; 
-        color: white !important; border-radius: 15px !important; 
-    }}
-    div[data-testid="stHorizontalBlock"] > div:nth-of-type(1) div.stButton > button {{ 
-        background-color: {btn_sharh_color} !important; box-shadow: 0px 4px 10px rgba(0,0,0,0.2);
-    }}
-    div[data-testid="stHorizontalBlock"] > div:nth-of-type(2) div.stButton > button {{ 
-        background-color: {btn_quiz_color} !important; box-shadow: 0px 4px 10px rgba(0,0,0,0.2);
-    }}
+    a[href*="github.com"], 
+    button[title="View source"], 
+    .stAppDeployButton,
+    [class*="viewerBadge"],
+    .viewerBadge_link__1S137,
+    [data-testid="stActionButton"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    [data-testid="stHeader"] button[aria-label="Manage app"],
+    [data-testid="stHeader"] button[aria-label="Share this app"],
+    [data-testid="stHeader"] button:not(#MainMenu) {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    #MainMenu, [data-testid="stHeader"] button#MainMenu {
+        display: inline-flex !important;
+        visibility: visible !important;
+    }
+    div[data-testid="stHorizontalBlock"] { 
+        display: flex !important; 
+        justify-content: center !important; 
+        gap: 25px !important; 
+    }
+    div.stButton > button { 
+        width: 100% !important; 
+        height: 110px !important; 
+        font-size: 26px !important; 
+        font-weight: bold !important; 
+        color: white !important; 
+        border-radius: 15px !important; 
+    }
+    div[data-testid="stHorizontalBlock"] > div:nth-of-type(1) div.stButton > button { 
+        background-color: #1A365D !important; 
+    }
+    div[data-testid="stHorizontalBlock"] > div:nth-of-type(2) div.stButton > button { 
+        background-color: #064E3B !important; 
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -196,7 +206,9 @@ if st.session_state.current_view == "sharh":
             chosen_lesson = st.selectbox("اختر الدرس المراد مشاهدته:", [l['title'] for l in lessons_available])
             current_lesson = next(l for l in lessons_available if l['title'] == chosen_lesson)
             
-            if current_lesson['video']: st.video(current_lesson['video'])
+            if current_lesson['video']:
+                st.video(current_lesson['video'])
+                
             if current_lesson['pdf']:
                 st.markdown("---")
                 st.write("📄 **المرفقات والمذكرات الخاصة بالدرس:**")
@@ -208,8 +220,10 @@ elif st.session_state.current_view == "quiz":
         st.info("👋 لا توجد امتحانات مرفوعة في الشيت حالياً...")
     else:
         chosen_quiz = st.selectbox("اختر الامتحان المطلوب للدخول:", list(quizzes_db.keys()))
+        
         cairo_tz = pytz.timezone('Africa/Cairo')
         now = datetime.now(cairo_tz).replace(tzinfo=None)
+        
         questions = quizzes_db[chosen_quiz]
         first_q = questions[0]
         quiz_allowed = True
@@ -221,23 +235,28 @@ elif st.session_state.current_view == "quiz":
         if (first_q["start_at"] and str(first_q["start_at"]).lower() != 'nan' and str(first_q["start_at"]).strip() != '') and not start_dt:
             quiz_allowed = False
             error_msg = "⚠️ صيغة التاريخ في الشيت غير صحيحة، يرجى كتابته بصيغة: YYYY-MM-DD HH:MM:SS"
+        
         if quiz_allowed and start_dt and now < start_dt:
             quiz_allowed = False
             error_msg = f"⏳ عذراً، هذا الامتحان لم يبدأ بعد. ميعاد البدء المحدد: {first_q['start_at']}"
+            
         if quiz_allowed and end_dt and now > end_dt:
             quiz_allowed = False
             error_msg = f"🚫 عذراً، انتهى الوقت المحدد لحل هذا الامتحان. كان آخر ميعاد: {first_q['end_at']}"
 
-        if not quiz_allowed: st.error(error_msg)
+        if not quiz_allowed:
+            st.error(error_msg)
         else:
             student_name = st.text_input("✍️ من فضلك أدخل اسمك الثلاثي لبدء الاختبار:")
-            if not student_name: st.warning("⚠️ يجب كتابة اسمك أولاً لتتمكن من حل الامتحان ورصد النتيجة.")
+            if not student_name:
+                st.warning("⚠️ يجب كتابة اسمك أولاً لتتمكن من حل الامتحان ورصد النتيجة.")
             else:
                 if has_submitted_before(student_name, chosen_quiz):
                     st.error(f"❌ عذراً يا {student_name}، لقد قمت بأداء هذا الاختبار مسبقاً! غير مسموح بالدخول مرة أخرى.")
                 else:
                     session_key = f"start_{chosen_quiz}"
-                    if session_key not in st.session_state: st.session_state[session_key] = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
+                    if session_key not in st.session_state:
+                        st.session_state[session_key] = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
                         
                     with st.form(key=f"quiz_form_{chosen_quiz}"):
                         st.markdown(f"### 📋 {chosen_quiz}")
@@ -246,25 +265,39 @@ elif st.session_state.current_view == "quiz":
                         student_answers = {}
                         for i, q in enumerate(questions):
                             st.write(f"**سؤال {i+1}: {q['question']}**")
+                            
                             display_options = []
                             letters = ["A", "B", "C", "D"]
                             for idx, letter in enumerate(letters):
                                 opt_text = str(q['options'][idx]).strip()
-                                if opt_text != "" and opt_text.lower() != 'nan': display_options.append(f"{letter} - {opt_text}")
-                                else: display_options.append(letter)
+                                if opt_text != "" and opt_text.lower() != 'nan':
+                                    display_options.append(f"{letter} - {opt_text}")
+                                else:
+                                    display_options.append(letter)
                             
-                            student_answers[i] = st.radio("اختر الإجابة:", options=display_options, key=f"quiz_radio_q_{i}_{chosen_quiz}")
+                            student_answers[i] = st.radio(
+                                "اختر الإجابة:", 
+                                options=display_options,
+                                key=f"quiz_radio_q_{i}_{chosen_quiz}"
+                            )
                         
                         if st.form_submit_button("📥 إرسال الإجابات وإنهاء الامتحان"):
                             submit_time = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
+                            
                             correct_count = 0
                             for i, q in enumerate(questions):
                                 selected_letter = str(student_answers[i]).split(" - ")[0].strip().upper()
-                                if selected_letter == str(q['correct']).strip().upper(): correct_count += 1
+                                if selected_letter == str(q['correct']).strip().upper():
+                                    correct_count += 1
                                     
                             score = int((correct_count / len(questions)) * 100)
+                            
                             WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxB72pq4-UUV_N9NOUdZgaCqBYj6x3p2RcPXoY1CDPmCgvo_4yFMEdirZ_nK_c_S8fcPw/exec"
-                            payload = {"student_name": student_name, "quiz_title": chosen_quiz, "score": score, "start_time": st.session_state[session_key], "submit_time": submit_time}
+                            
+                            payload = {
+                                "student_name": student_name, "quiz_title": chosen_quiz, "score": score,
+                                "start_time": st.session_state[session_key], "submit_time": submit_time
+                            }
                             try: requests.post(WEB_APP_URL, json=payload)
                             except: pass
                             
