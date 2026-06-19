@@ -195,7 +195,7 @@ with box_quiz:
 st.markdown("---")
 
 if st.session_state.current_view == "sharh":
-    st.subheader("📺 قسم المحاضرات وفيديوهات الشرح")
+    st.subheader("📺 قسم الدروس وفيديوهات الشرح")
     if courses_db:
         chosen_course = st.selectbox("اختر الوحدة:", list(courses_db.keys()))
         lessons_available = courses_db[chosen_course]
