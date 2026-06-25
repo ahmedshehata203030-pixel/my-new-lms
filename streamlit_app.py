@@ -129,7 +129,14 @@ def load_data():
         norm_q_columns = [c.lower().replace("_", "").replace(" ", "") for c in raw_q_columns]
         
         q_title_col = raw_q_columns[norm_q_columns.index(next(c for c in norm_q_columns if "quiz" in c or "امتحان" in c or "اختبار" in c))]
-        q_text_col = raw_q_columns[norm_q_columns.index(next(c for c in norm_q_columns if "question" in c or "سؤال" in c or "السين" in c))]
+        q_text_col = raw_q_columns[norm_q_columns.index(next(c for c in norm_q_columns if "question" in c or "سؤال" in c))]
+        
+        opt_a_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "opta" in c or "opt_a" in c or (c.endswith("a") and len(c)<=5) or "أ" in c), None)
+        opt_b_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "optb" in c or "opt_b" in c or (c.endswith("b") and len(c)<=5) or "ب" in c), None)
+        opt_c_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "optc" in c or "opt_c" in c or (c.endswith("c") and len(c)<=5) or "ج" in c), None)
+        opt_d_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "optd" in c or "opt_d" in c or (c.endswith("d") and len(c)<=5) or "د" in c), None)
+        
+        correct_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "correct" in c or "إجابة" in c or "الحل" in c), None)
         
         quizzes = {}
         for _, row in quizzes_df.iterrows():
@@ -137,15 +144,18 @@ def load_data():
             if not q_title: continue
             if q_title not in quizzes: quizzes[q_title] = []
             
+            raw_correct = force_string(row.get(correct_col, '')).upper()
+            final_correct = raw_correct[-1] if raw_correct.startswith('OPT') else raw_correct
+            
             quizzes[q_title].append({
                 "question": force_string(row.get(q_text_col, '')),
                 "options": [
-                    force_string(row.get('opta', '') if 'opta' in norm_q_columns else row.get('opt_a', '')),
-                    force_string(row.get('optb', '') if 'optb' in norm_q_columns else row.get('opt_b', '')),
-                    force_string(row.get('optc', '') if 'optc' in norm_q_columns else row.get('opt_c', '')),
-                    force_string(row.get('optd', '') if 'optd' in norm_q_columns else row.get('opt_d', ''))
+                    force_string(row.get(opt_a_col, '') if opt_a_col else ''),
+                    force_string(row.get(opt_b_col, '') if opt_b_col else ''),
+                    force_string(row.get(opt_c_col, '') if opt_c_col else ''),
+                    force_string(row.get(opt_d_col, '') if opt_d_col else '')
                 ],
-                "correct": force_string(row.get('correctopt', '')).upper()[-1] if force_string(row.get('correctopt', '')).upper().startswith('OPT') else force_string(row.get('correctopt', '')).upper(),
+                "correct": final_correct,
                 "start_at": row.get('startat', None),
                 "end_at": row.get('endat', None)
             })
@@ -154,20 +164,14 @@ def load_data():
 
 st.set_page_config(page_title="منصتي التعليمية", layout="wide")
 
-# 🚨 التعديل السحري للـ CSS لحل اختفاء الاختيارات تماماً مع إبقاء الحظر لأزرار المنصة 🚨
+# الـ CSS الآمن لحظر شريط الأدوات العلوي والتحكم الكامل في تصميم الأزرار الرئيسية
 st.markdown("""
     <style>
-    /* إخفاء شريط الأدوات بالكامل (جيت هب، النجمة، التعديل، القائمة الثلاثية الجديدة) */
     [data-testid="stHeaderActionElements"] { display: none !important; visibility: hidden !important; }
-    
-    /* إخفاء زر المشاركة Share الجديد من الهيدر فقط دون التأثير على محتوى الصفحة */
-    header[data-testid="stHeader"] button { display: none !important; visibility: hidden !hidden !important; }
-    
-    /* إخفاء بقية أزرار الإدارة والـ جيت هب الكلاسيكية تماماً */
+    header[data-testid="stHeader"] button { display: none !important; visibility: hidden !important; }
     a[href*="github.com"], button[title="View source"], .stAppDeployButton, [class*="viewerBadge"], .viewerBadge_link__1S137, [data-testid="stActionButton"] { display: none !important; visibility: hidden !important; }
     header[data-testid="stHeader"] button[aria-label="Manage app"], header[data-testid="stHeader"] button[aria-label="Share this app"] { display: none !important; visibility: hidden !important; }
     
-    /* تنسيق أزرار الشرح والامتحانات بالمنتصف بشكل احترافي */
     div[data-testid="stHorizontalBlock"] { display: flex !important; justify-content: center !important; gap: 25px !important; }
     div.stButton > button { width: 100% !important; height: 110px !important; font-size: 26px !important; font-weight: bold !important; color: white !important; border-radius: 15px !important; }
     div[data-testid="stHorizontalBlock"] > div:nth-of-type(1) div.stButton > button { background-color: #1A365D !important; }
@@ -177,7 +181,6 @@ st.markdown("""
 
 st.header("🎓 بوابة الطالب التعليمية")
 
-# قفل شاشة تسجيل الدخول
 if "access_granted" not in st.session_state:
     st.session_state.access_granted = False
 
@@ -204,7 +207,6 @@ if not st.session_state.access_granted:
                     st.error(msg)
     st.stop()
 
-# في حالة نجاح الدخول:
 student_name = st.session_state.student_name
 st.sidebar.success(f"👤 مرحبًا بك يا هندسة: {student_name}")
 if st.sidebar.button("🔒 تسجيل الخروج"):
@@ -286,22 +288,29 @@ elif st.session_state.current_view == "quiz":
                     
                     student_answers = {}
                     for i, q in enumerate(questions):
-                        st.write(f"**سؤال {i+1}: {q['question']}**")
+                        st.markdown(f"#### **سؤال {i+1}: {q['question']}**")
                         
-                        display_options = []
+                        # 💡 عرض الاختيارات المتاحة كنص عادي واضح جداً للطالب ومقاوم لأي اختفاء
                         letters = ["A", "B", "C", "D"]
+                        available_options_for_radio = []
+                        
                         for idx, letter in enumerate(letters):
                             opt_text = str(q['options'][idx]).strip()
-                            if opt_text != "" and opt_text.lower() != 'nan': display_options.append(f"{letter} - {opt_text}")
-                            else: display_options.append(letter)
+                            if opt_text != "" and opt_text.lower() != 'nan':
+                                st.write(f"🔹 **{letter}:** {opt_text}")
+                                available_options_for_radio.append(letter)
+                            else:
+                                available_options_for_radio.append(letter)
                         
-                        student_answers[i] = st.radio("اختر الإجابة:", options=display_options, key=f"quiz_radio_q_{i}_{chosen_quiz}")
+                        # زر الاختيار البسيط والسريع
+                        student_answers[i] = st.radio(f"اختر إجابة السؤال {i+1}:", options=available_options_for_radio, key=f"quiz_radio_q_{i}_{chosen_quiz}", horizontal=True)
+                        st.markdown("---")
                     
                     if st.form_submit_button("📥 إرسال الإجابات وإنهاء الامتحان"):
                         submit_time = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
                         correct_count = 0
                         for i, q in enumerate(questions):
-                            selected_letter = str(student_answers[i]).split(" - ")[0].strip().upper()
+                            selected_letter = str(student_answers[i]).strip().upper()
                             if selected_letter == str(q['correct']).strip().upper(): correct_count += 1
                                 
                         score = int((correct_count / len(questions)) * 100)
