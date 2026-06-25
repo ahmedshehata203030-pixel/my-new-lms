@@ -21,7 +21,6 @@ WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxIpDlNRgzsf_SamtDEzJfggm
 # مكون برمجى خفي متطور لتوليد وبصم الأجهزة بدون تسريب وبدون Autofill خاطئ
 def get_device_id():
     if "device_id" not in st.session_state:
-        # كود جافاسكريبت محسن وفوري لسرعة حقن التوكن في المتصفح
         js_code = """
         <script>
         function injectDevice() {
@@ -36,13 +35,11 @@ def get_device_id():
                 input.dispatchEvent(new Event('input', { bubbles: true }));
             }
         }
-        // تشغيل فوري ومتكرر لضمان الاستجابة السريعة جداً مع المتصفح
         injectDevice();
         setTimeout(injectDevice, 50);
         setTimeout(injectDevice, 200);
         </script>
         """
-        # حيلة CSS قوية لإخفاء حاوية عنصر الـ TextInput بالكامل فلا يظهر أبداً في الواجهة
         st.markdown("""
             <style>
             div[data-testid="stTextInput"]:has(input[placeholder="dev_safe_holder"]) {
@@ -51,7 +48,6 @@ def get_device_id():
             </style>
         """, unsafe_allow_html=True)
         
-        # حقل نصي عادي وليس password (لحماية الفورم من الـ Autofill التلقائي للمتصفحات)
         device_token = st.text_input("hidden_device_label", placeholder="dev_safe_holder", key="dev_token_holder")
         
         from streamlit.components.v1 import html
@@ -87,7 +83,6 @@ def force_string(val):
         return ""
     return str(val).strip()
 
-# الدالة الذكية للتحقق من حظر أو تكرار الأجهزة والأسماء
 def check_student_access(student_name, current_device_id):
     if not student_name or not current_device_id:
         return "waiting", "يرجى كتابة الاسم للتحقق."
@@ -108,18 +103,13 @@ def check_student_access(student_name, current_device_id):
             row_device = force_string(row.get(dev_col, ''))
             
             if row_name == s_name:
-                # الحالة 1: الاسم موجود والجهاز لسه متسجلش (أول دخول له)
                 if row_device == "" or row_device.lower() == "nan":
                     payload = {"action": "register_device", "student_name": student_name, "device_id": current_device_id}
                     try: requests.post(WEB_APP_URL, json=payload)
                     except: pass
                     return "granted", "تم تسجيل جهازك بنجاح ومصرح لك بالدخول."
-                
-                # الحالة 2: الجهاز متسجل ومطابق للجهاز الحالي
                 elif row_device == current_device_id:
                     return "granted", "مرحبًا بك مجددًا."
-                
-                # الحالة 3: الجهاز متسجل بس مختلف عن الجهاز الحالي (محاولة سرقة أو مشاركة حساب)
                 else:
                     return "denied", f"❌ عذراً يا {student_name}، هذا الحساب مقيد بجهاز آخر بالفعل! غير مسموح لك بالدخول من هذا الجهاز."
                     
@@ -205,163 +195,171 @@ def load_data():
     except: quizzes = {}
     return courses, quizzes
 
+# إعدادات الصفحة
 st.set_page_config(page_title="منصتي التعليمية", layout="wide")
 
-# جلب بصمة المتصفح الحالية الآمنة
+# جلب بصمة الجهاز الآمنة
 current_device_id = get_device_id()
 
-st.header("🎓 بوابة الطالب التعليمية الآمنة")
-
-# قفل شاشة تسجيل الدخول والتحقق أولاً قبل إظهار أي محتوى للمنصة
 if "access_granted" not in st.session_state:
     st.session_state.access_granted = False
 
+# إنشاء حاوية مرنة لشاشة تسجيل الدخول لمنع قفل السيرفر
+login_placeholder = st.empty()
+
 if not st.session_state.access_granted:
-    st.subheader("🔒 تسجيل الدخول ونظام حماية الحسابات")
-    student_name_input = st.text_input("✍️ من فضلك أدخل اسمك الثلاثي المعتمد للدخول للمنصة:")
-    
-    if st.button("🚪 تسجيل الدخول والتحقق من الجهاز", type="primary"):
-        if not student_name_input.strip():
-            st.warning("⚠️ يرجى كتابة الاسم أولاً.")
-        elif not current_device_id:
-            # معالجة ذكية وسريعة لإعادة تحميل الصفحة والتقاط البصمة فوراً في نفس اللحظة
-            st.toast("🔄 جاري تهيئة الاتصال الآمن.. ثانية واحدة")
-            time.sleep(0.1)
-            st.rerun()
-        else:
-            status, msg = check_student_access(student_name_input.strip(), current_device_id)
-            if status == "granted":
-                st.session_state.access_granted = True
-                st.session_state.student_name = student_name_input.strip()
-                st.success(msg)
-                time.sleep(1)
+    with login_placeholder.container():
+        st.header("🎓 بوابة الطالب التعليمية الآمنة")
+        st.subheader("🔒 تسجيل الدخول ونظام حماية الحسابات")
+        student_name_input = st.text_input("✍️ من فضلك أدخل اسمك الثلاثي المعتمد للدخول للمنصة:")
+        
+        if st.button("🚪 تسجيل الدخول والتحقق من الجهاز", type="primary"):
+            if not student_name_input.strip():
+                st.warning("⚠️ يرجى كتابة الاسم أولاً.")
+            elif not current_device_id:
+                st.toast("🔄 جاري تهيئة الاتصال الآمن.. اضغط مرة أخرى للدخول فورا")
+                time.sleep(0.2)
                 st.rerun()
             else:
-                st.error(msg)
-    st.stop() # يمنع تحميل بقية الكود تماماً طالما لم يتم التحقق
+                status, msg = check_student_access(student_name_input.strip(), current_device_id)
+                if status == "granted":
+                    st.session_state.access_granted = True
+                    st.session_state.student_name = student_name_input.strip()
+                    st.success(msg)
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error(msg)
 
-# في حالة تخطي الأمان بنجاح:
-student_name = st.session_state.student_name
-st.sidebar.success(f"👤 مرحبًا بك يا هندسة: {student_name}")
-if st.sidebar.button("🔒 تسجيل الخروج"):
-    st.session_state.access_granted = False
-    st.rerun()
+# إذا تم قبول الدخول، نقوم بتفريغ شاشة الدخول وعرض المنصة مباشرة
+if st.session_state.access_granted:
+    login_placeholder.empty() # حذف شاشة الدخول بالكامل من الواجهة
+    
+    st.header("🎓 بوابة الطالب التعليمية الآمنة")
+    student_name = st.session_state.student_name
+    st.sidebar.success(f"👤 مرحبًا بك يا هندسة: {student_name}")
+    if st.sidebar.button("🔒 تسجيل الخروج"):
+        st.session_state.access_granted = False
+        st.rerun()
 
-courses_db, quizzes_db = load_data()
+    courses_db, quizzes_db = load_data()
 
-if "current_view" not in st.session_state: st.session_state.current_view = "sharh"
+    if "current_view" not in st.session_state: 
+        st.session_state.current_view = "sharh"
 
-# الـ CSS المخصص للمنصة لإخفاء أزرار الإدارة وجيت هب
-st.markdown("""
-    <style>
-    a[href*="github.com"], button[title="View source"], .stAppDeployButton, [class*="viewerBadge"], .viewerBadge_link__1S137, [data-testid="stActionButton"] { display: none !important; visibility: hidden !important; }
-    [data-testid="stHeader"] button[aria-label="Manage app"], [data-testid="stHeader"] button[aria-label="Share this app"] { display: none !important; visibility: hidden !important; }
-    div[data-testid="stHorizontalBlock"] { display: flex !important; justify-content: center !important; gap: 25px !important; }
-    div.stButton > button { width: 100% !important; height: 110px !important; font-size: 26px !important; font-weight: bold !important; color: white !important; border-radius: 15px !important; }
-    div[data-testid="stHorizontalBlock"] > div:nth-of-type(1) div.stButton > button { background-color: #1A365D !important; }
-    div[data-testid="stHorizontalBlock"] > div:nth-of-type(2) div.stButton > button { background-color: #064E3B !important; }
-    </style>
-""", unsafe_allow_html=True)
+    # الـ CSS المحسن لإخفاء أدوات الإدارة
+    st.markdown("""
+        <style>
+        a[href*="github.com"], button[title="View source"], .stAppDeployButton, [class*="viewerBadge"], .viewerBadge_link__1S137, [data-testid="stActionButton"] { display: none !important; visibility: hidden !important; }
+        [data-testid="stHeader"] button[aria-label="Manage app"], [data-testid="stHeader"] button[aria-label="Share this app"] { display: none !important; visibility: hidden !important; }
+        div[data-testid="stHorizontalBlock"] { display: flex !important; justify-content: center !important; gap: 25px !important; }
+        div.stButton > button { width: 100% !important; height: 110px !important; font-size: 26px !important; font-weight: bold !important; color: white !important; border-radius: 15px !important; }
+        div[data-testid="stHorizontalBlock"] > div:nth-of-type(1) div.stButton > button { background-color: #1A365D !important; }
+        div[data-testid="stHorizontalBlock"] > div:nth-of-type(2) div.stButton > button { background-color: #064E3B !important; }
+        </style>
+    """, unsafe_allow_html=True)
 
-box_sharh, box_quiz = st.columns(2)
-with box_sharh:
-    if st.button("📺 الشرح والدروس", key="btn_sharh"): st.session_state.current_view = "sharh"
-with box_quiz:
-    if st.button("📝 الامتحانات والاختبارات", key="btn_quiz"): st.session_state.current_view = "quiz"
-st.markdown("---")
+    box_sharh, box_quiz = st.columns(2)
+    with box_sharh:
+        if st.button("📺 الشرح والدروس", key="btn_sharh"): 
+            st.session_state.current_view = "sharh"
+    with box_quiz:
+        if st.button("📝 الامتحانات والاختبارات", key="btn_quiz"): 
+            st.session_state.current_view = "quiz"
+    st.markdown("---")
 
-if st.session_state.current_view == "sharh":
-    st.subheader("📺 قسم الدروس وفيديوهات الشرح")
-    if courses_db:
-        chosen_course = st.selectbox("اختر الوحدة:", list(courses_db.keys()))
-        lessons_available = courses_db[chosen_course]
-        
-        if not lessons_available:
-            st.info("👋 قريباً.. سيتم رفع دروس ومحاضرات هذا الكورس.")
-        else:
-            chosen_lesson = st.selectbox("اختر الدرس المراد مشاهدته:", [l['title'] for l in lessons_available])
-            current_lesson = next(l for l in lessons_available if l['title'] == chosen_lesson)
+    if st.session_state.current_view == "sharh":
+        st.subheader("📺 قسم الدروس وفيديوهات الشرح")
+        if courses_db:
+            chosen_course = st.selectbox("اختر الوحدة:", list(courses_db.keys()))
+            lessons_available = courses_db[chosen_course]
             
-            if current_lesson['video']: st.video(current_lesson['video'])
-            if current_lesson['pdf']:
-                st.markdown("---")
-                st.write("📄 **المرفقات والمذكرات الخاصة بالدرس:**")
-                st.link_button("📂 اضغط هنا لفتح وتحميل ملف الـ PDF", current_lesson['pdf'], use_container_width=True)
-
-elif st.session_state.current_view == "quiz":
-    st.subheader("📝 قسم الامتحانات والتقييمات الذكية")
-    if not quizzes_db:
-        st.info("👋 لا توجد امتحانات مرفوعة في الشيت حالياً...")
-    else:
-        chosen_quiz = st.selectbox("اختر الامتحان المطلوب للدخول:", list(quizzes_db.keys()))
-        
-        cairo_tz = pytz.timezone('Africa/Cairo')
-        now = datetime.now(cairo_tz).replace(tzinfo=None)
-        
-        questions = quizzes_db[chosen_quiz]
-        first_q = questions[0]
-        quiz_allowed = True
-        error_msg = ""
-        
-        start_dt = clean_date_string(first_q["start_at"])
-        end_dt = clean_date_string(first_q["end_at"])
-        
-        if (first_q["start_at"] and str(first_q["start_at"]).lower() != 'nan' and str(first_q["start_at"]).strip() != '') and not start_dt:
-            quiz_allowed = False
-            error_msg = "⚠️ صيغة التاريخ في الشيت غير صحيحة، يرجى كتابته بصيغة: YYYY-MM-DD HH:MM:SS"
-        
-        if quiz_allowed and start_dt and now < start_dt:
-            quiz_allowed = False
-            error_msg = f"⏳ عذراً، هذا الامتحان لم يبدأ بعد. ميعاد البدء المحدد: {first_q['start_at']}"
-            
-        if quiz_allowed and end_dt and now > end_dt:
-            quiz_allowed = False
-            error_msg = f"🚫 عذراً، انتهى الوقت المحدد لحل هذا الامتحان. كان آخر ميعاد: {first_q['end_at']}"
-
-        if not quiz_allowed:
-            st.error(error_msg)
-        else:
-            if has_submitted_before(student_name, chosen_quiz):
-                st.error(f"❌ عذراً يا {student_name}، لقد قمت بأداء هذا الاختبار مسبقاً! غير مسموح بالدخول مرة أخرى.")
+            if not lessons_available:
+                st.info("👋 قريباً.. سيتم رفع دروس ومحاضرات هذا الكورس.")
             else:
-                session_key = f"start_{chosen_quiz}"
-                if session_key not in st.session_state:
-                    st.session_state[session_key] = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
-                    
-                with st.form(key=f"quiz_form_{chosen_quiz}"):
-                    st.markdown(f"### 📋 {chosen_quiz}")
-                    st.info(f"👤 الطالب: {student_name} | 🕒 وقت الدخول: {st.session_state[session_key]}")
-                    
-                    student_answers = {}
-                    for i, q in enumerate(questions):
-                        st.write(f"**سؤال {i+1}: {q['question']}**")
+                chosen_lesson = st.selectbox("اختر الدرس المراد مشاهدته:", [l['title'] for l in lessons_available])
+                current_lesson = next(l for l in lessons_available if l['title'] == chosen_lesson)
+                
+                if current_lesson['video']: st.video(current_lesson['video'])
+                if current_lesson['pdf']:
+                    st.markdown("---")
+                    st.write("📄 **المرفقات والمذكرات الخاصة بالدرس:**")
+                    st.link_button("📂 اضغط هنا لفتح وتحميل ملف الـ PDF", current_lesson['pdf'], use_container_width=True)
+
+    elif st.session_state.current_view == "quiz":
+        st.subheader("📝 قسم الامتحانات والتقييمات الذكية")
+        if not quizzes_db:
+            st.info("👋 لا توجد امتحانات مرفوعة في الشيت حالياً...")
+        else:
+            chosen_quiz = st.selectbox("اختر الامتحان المطلوب للدخول:", list(quizzes_db.keys()))
+            
+            cairo_tz = pytz.timezone('Africa/Cairo')
+            now = datetime.now(cairo_tz).replace(tzinfo=None)
+            
+            questions = quizzes_db[chosen_quiz]
+            first_q = questions[0]
+            quiz_allowed = True
+            error_msg = ""
+            
+            start_dt = clean_date_string(first_q["start_at"])
+            end_dt = clean_date_string(first_q["end_at"])
+            
+            if (first_q["start_at"] and str(first_q["start_at"]).lower() != 'nan' and str(first_q["start_at"]).strip() != '') and not start_dt:
+                quiz_allowed = False
+                error_msg = "⚠️ صيغة التاريخ في الشيت غير صحيحة، يرجى كتابته بصيغة: YYYY-MM-DD HH:MM:SS"
+            
+            if quiz_allowed and start_dt and now < start_dt:
+                quiz_allowed = False
+                error_msg = f"⏳ عذراً، هذا الامتحان لم يبدأ بعد. ميعاد البدء المحدد: {first_q['start_at']}"
+                
+            if quiz_allowed and end_dt and now > end_dt:
+                quiz_allowed = False
+                error_msg = f"🚫 عذراً، انتهى الوقت المحدد لحل هذا الامتحان. كان آخر ميعاد: {first_q['end_at']}"
+
+            if not quiz_allowed:
+                st.error(error_msg)
+            else:
+                if has_submitted_before(student_name, chosen_quiz):
+                    st.error(f"❌ عذراً يا {student_name}، لقد قمت بأداء هذا الاختبار مسبقاً! غير مسموح بالدخول مرة أخرى.")
+                else:
+                    session_key = f"start_{chosen_quiz}"
+                    if session_key not in st.session_state:
+                        st.session_state[session_key] = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
                         
-                        display_options = []
-                        letters = ["A", "B", "C", "D"]
-                        for idx, letter in enumerate(letters):
-                            opt_text = str(q['options'][idx]).strip()
-                            if opt_text != "" and opt_text.lower() != 'nan': display_options.append(f"{letter} - {opt_text}")
-                            else: display_options.append(letter)
+                    with st.form(key=f"quiz_form_{chosen_quiz}"):
+                        st.markdown(f"### 📋 {chosen_quiz}")
+                        st.info(f"👤 الطالب: {student_name} | 🕒 وقت الدخول: {st.session_state[session_key]}")
                         
-                        student_answers[i] = st.radio("اختر الإجابة:", options=display_options, key=f"quiz_radio_q_{i}_{chosen_quiz}")
-                    
-                    if st.form_submit_button("📥 إرسال الإجابات وإنهاء الامتحان"):
-                        submit_time = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
-                        correct_count = 0
+                        student_answers = {}
                         for i, q in enumerate(questions):
-                            selected_letter = str(student_answers[i]).split(" - ")[0].strip().upper()
-                            if selected_letter == str(q['correct']).strip().upper(): correct_count += 1
-                                
-                        score = int((correct_count / len(questions)) * 100)
+                            st.write(f"**سؤال {i+1}: {q['question']}**")
+                            
+                            display_options = []
+                            letters = ["A", "B", "C", "D"]
+                            for idx, letter in enumerate(letters):
+                                opt_text = str(q['options'][idx]).strip()
+                                if opt_text != "" and opt_text.lower() != 'nan': display_options.append(f"{letter} - {opt_text}")
+                                else: display_options.append(letter)
+                            
+                            student_answers[i] = st.radio("اختر الإجابة:", options=display_options, key=f"quiz_radio_q_{i}_{chosen_quiz}")
                         
-                        payload = {
-                            "action": "submit_quiz", "student_name": student_name, "quiz_title": chosen_quiz, 
-                            "score": score, "start_time": st.session_state[session_key], "submit_time": submit_time
-                        }
-                        try: requests.post(WEB_APP_URL, json=payload)
-                        except: pass
-                        
-                        st.markdown("---")
-                        if score >= 50: st.success(f"🎉 ممتاز يا {student_name}! درجتك: {score}%")
-                        else: st.error(f"😞 للأسف يا {student_name} درجتك: {score}%.")
-                        st.balloons()
+                        if st.form_submit_button("📥 إرسال الإجابات وإنهاء الامتحان"):
+                            submit_time = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
+                            correct_count = 0
+                            for i, q in enumerate(questions):
+                                selected_letter = str(student_answers[i]).split(" - ")[0].strip().upper()
+                                if selected_letter == str(q['correct']).strip().upper(): correct_count += 1
+                                    
+                            score = int((correct_count / len(questions)) * 100)
+                            
+                            payload = {
+                                "action": "submit_quiz", "student_name": student_name, "quiz_title": chosen_quiz, 
+                                "score": score, "start_time": st.session_state[session_key], "submit_time": submit_time
+                            }
+                            try: requests.post(WEB_APP_URL, json=payload)
+                            except: pass
+                            
+                            st.markdown("---")
+                            if score >= 50: st.success(f"🎉 ممتاز يا {student_name}! درجتك: {score}%")
+                            else: st.error(f"😞 للأسف يا {student_name} درجتك: {score}%.")
+                            st.balloons()
