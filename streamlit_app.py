@@ -17,7 +17,7 @@ ANSWERS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&shee
 WHITELIST_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=whitelist&v={int(time.time())}")
 
 # رابط الـ Web App لإرسال البيانات للجوجل شيت
-WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxB72pq4-UUV_N9NOUdZgaCqBYj6x3p2RcPXoY1CDPmCgvo_4yFMEdirZ_nK_c_S8fcPw/exec"
+WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxIpDlNRgzsf_SamtDEzJfggmSBK6y7UhmShuyhNIKK89R4EH_8O2tjGYYrYuSNkLGr/exec"
 
 # مكون برمجى خفي (حاقن جافاسكريبت) لتوليد وحفظ بصمة الجهاز في المتصفح والـ Session
 def get_device_id():
