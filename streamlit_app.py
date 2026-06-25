@@ -154,18 +154,18 @@ def load_data():
 
 st.set_page_config(page_title="منصتي التعليمية", layout="wide")
 
-# 🚨 الـ CSS المطور والمحدث لحظر شريط الأدوات بالكامل وأزرار جيت هب والمشاركة الجديدة 🚨
+# 🚨 التعديل السحري للـ CSS لحل اختفاء الاختيارات تماماً مع إبقاء الحظر لأزرار المنصة 🚨
 st.markdown("""
     <style>
     /* إخفاء شريط الأدوات بالكامل (جيت هب، النجمة، التعديل، القائمة الثلاثية الجديدة) */
     [data-testid="stHeaderActionElements"] { display: none !important; visibility: hidden !important; }
     
-    /* إخفاء زر المشاركة Share الجديد من الهيدر */
-    [data-testid="stHeader"] button { display: none !important; visibility: hidden !important; }
+    /* إخفاء زر المشاركة Share الجديد من الهيدر فقط دون التأثير على محتوى الصفحة */
+    header[data-testid="stHeader"] button { display: none !important; visibility: hidden !hidden !important; }
     
     /* إخفاء بقية أزرار الإدارة والـ جيت هب الكلاسيكية تماماً */
     a[href*="github.com"], button[title="View source"], .stAppDeployButton, [class*="viewerBadge"], .viewerBadge_link__1S137, [data-testid="stActionButton"] { display: none !important; visibility: hidden !important; }
-    [data-testid="stHeader"] button[aria-label="Manage app"], [data-testid="stHeader"] button[aria-label="Share this app"] { display: none !important; visibility: hidden !important; }
+    header[data-testid="stHeader"] button[aria-label="Manage app"], header[data-testid="stHeader"] button[aria-label="Share this app"] { display: none !important; visibility: hidden !important; }
     
     /* تنسيق أزرار الشرح والامتحانات بالمنتصف بشكل احترافي */
     div[data-testid="stHorizontalBlock"] { display: flex !important; justify-content: center !important; gap: 25px !important; }
