@@ -5,7 +5,6 @@ from datetime import datetime
 import pytz
 import re
 import time
-import uuid
 
 # 🔗 [1] رابط الجوجل شيت الخاص بك
 SHEET_URL = "https://docs.google.com/spreadsheets/d/11sa1GDAYCez4b17aI1hDPKJDtfj953ySj8OMYOxbzTI/edit?usp=sharing"
@@ -22,19 +21,25 @@ WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxIpDlNRgzsf_SamtDEzJfggm
 # مكون برمجى خفي متطور لتوليد وبصم الأجهزة بدون تسريب وبدون Autofill خاطئ
 def get_device_id():
     if "device_id" not in st.session_state:
-        # كود جافاسكريبت لحقن التوكن في الحقل النصي المخفي بدقة عبر الـ placeholder
+        # كود جافاسكريبت محسن وفوري لسرعة حقن التوكن في المتصفح
         js_code = """
         <script>
-        var d_id = localStorage.getItem('st_device_id');
-        if (!d_id) {
-            d_id = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-            localStorage.setItem('st_device_id', d_id);
+        function injectDevice() {
+            var d_id = localStorage.getItem('st_device_id');
+            if (!d_id) {
+                d_id = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                localStorage.setItem('st_device_id', d_id);
+            }
+            var input = window.parent.document.querySelector('input[placeholder="dev_safe_holder"]');
+            if (input && input.value !== d_id) {
+                input.value = d_id;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
         }
-        var input = window.parent.document.querySelector('input[placeholder="dev_safe_holder"]');
-        if (input && input.value !== d_id) {
-            input.value = d_id;
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-        }
+        // تشغيل فوري ومتكرر لضمان الاستجابة السريعة جداً مع المتصفح
+        injectDevice();
+        setTimeout(injectDevice, 50);
+        setTimeout(injectDevice, 200);
         </script>
         """
         # حيلة CSS قوية لإخفاء حاوية عنصر الـ TextInput بالكامل فلا يظهر أبداً في الواجهة
@@ -219,7 +224,9 @@ if not st.session_state.access_granted:
         if not student_name_input.strip():
             st.warning("⚠️ يرجى كتابة الاسم أولاً.")
         elif not current_device_id:
-            st.error("⏳ جاري قراءة بصمة متصفحك.. يرجى الضغط مرة أخرى خلال ثانيتين.")
+            # معالجة ذكية وسريعة لإعادة تحميل الصفحة والتقاط البصمة فوراً في نفس اللحظة
+            st.toast("🔄 جاري تهيئة الاتصال الآمن.. ثانية واحدة")
+            time.sleep(0.1)
             st.rerun()
         else:
             status, msg = check_student_access(student_name_input.strip(), current_device_id)
