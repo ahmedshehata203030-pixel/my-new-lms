@@ -17,34 +17,78 @@ ANSWERS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&shee
 WHITELIST_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=whitelist&v={int(time.time())}")
 
 # رابط الـ Web App لإرسال البيانات للجوجل شيت
-WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxIpDlNRgzsf_SamtDEzJfggmSBK6y7UhmShuyhNIKK89R4EH_8O2tjGYYrYuSNkLGr/exec"
+WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxB72pq4-UUV_N9NOUdZgaCqBYj6x3p2RcPXoY1CDPmCgvo_4yFMEdirZ_nK_c_S8fcPw/exec"
 
-# مكون برمجى خفي (حاقن جافاسكريبت) لتوليد وحفظ بصمة الجهاز في المتصفح والـ Session
+# 🔒 [جديد] دالة توليد وحفظ بصمة الجهاز ومنع الـ Autofill الخاطئ للاسم
 def get_device_id():
     if "device_id" not in st.session_state:
-        # كود جافاسكريبت للتحقق من وجود المعرف في المتصفح أو توليد واحد جديد
         js_code = """
         <script>
         var d_id = localStorage.getItem('st_device_id');
         if (!d_id) {
-            d_id = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            d_id = 'dev_' + Math.random().toString(36).substring(2, 15);
             localStorage.setItem('st_device_id', d_id);
         }
-        window.parent.postMessage({type: 'streamlit:setComponentValue', value: d_id}, '*');
+        var input = window.parent.document.querySelector('input[type="password"]');
+        if(input) {
+            input.value = d_id;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
         </script>
         """
-        # حيلة برمجية بسيطة للحصول على القيمة الراجعة من المتصفح
         from streamlit.components.v1 import html
         st.write('<div style="display:none">', unsafe_allow_html=True)
-        device_token = st.text_input("dev_token_holder", key="dev_token_holder")
+        device_token = st.text_input("dev_token_holder", type="password", key="dev_token_holder")
         html(js_code, height=0)
         st.write('</div>', unsafe_allow_html=True)
         
         if device_token:
+            if not device_token.startswith("dev_"):
+                device_token = f"dev_{uuid.uuid4().hex[:12]}"
             st.session_state.device_id = device_token
             return device_token
         return None
     return st.session_state.device_id
+
+# 🔒 [جديد] دالة التحقق الذكي من الـ Whitelist وجهاز الطالب
+def check_student_access(student_name, current_device_id):
+    if not student_name or not current_device_id:
+        return "waiting", "يرجى كتابة الاسم للتحقق."
+        
+    s_name = "".join(student_name.split()).lower()
+    try:
+        df = pd.read_csv(WHITELIST_CSV, dtype=str)
+        df.columns = [str(c).strip().lower() for c in df.columns]
+        
+        name_col = next((c for c in df.columns if "name" in c or "اسم" in c), None)
+        dev_col = next((c for c in df.columns if "device" in c or "جهاز" in c or "id" in c), None)
+        
+        if not name_col or not dev_col:
+            return "error", "⚠️ خطأ في بنية شيت الـ whitelist (تأكد من وجود name و Device_ID)."
+            
+        for _, row in df.iterrows():
+            row_name = "".join(force_string(row.get(name_col, '')).split()).lower()
+            row_device = force_string(row.get(dev_col, ''))
+            
+            if row_name == s_name:
+                # إذا كانت خانة الجهاز فارغة، قم بتسجيل جهاز الطالب الحالي فوراً
+                if row_device == "" or row_device.lower() == "nan":
+                    payload = {"action": "register_device", "student_name": student_name, "device_id": current_device_id}
+                    try: requests.post(WEB_APP_URL, json=payload, timeout=10)
+                    except: pass
+                    return "granted", "تم تسجيل جهازك بنجاح ومصرح لك بالدخول."
+                
+                # إذا كان الجهاز مطابقاً للجهاز المسجل سابقاً
+                elif row_device == current_device_id:
+                    return "granted", "مرحبًا بك مجددًا."
+                
+                # إذا كان الجهاز مختلفاً (محاولة مشاركة الحساب)
+                else:
+                    return "denied", f"❌ عذراً، هذا الحساب مقيد بجهاز آخر بالفعل! غير مسموح بالدخول."
+                    
+        return "denied", "❌ عذراً، اسمك غير مسجل في قوائم الطلاب المصرح لهم (Whitelist)."
+    except:
+        return "granted", "تحذير: تعذر الاتصال بنظام الحماية، تم السماح بالدخول مؤقتاً."
 
 def clean_date_string(date_str):
     if not date_str or pd.isna(date_str) or str(date_str).lower() == 'nan' or str(date_str).strip() == '':
@@ -70,47 +114,6 @@ def force_string(val):
         return ""
     return str(val).strip()
 
-# الدالة الذكية للتحقق من حظر أو تكرار الأجهزة والأسماء
-def check_student_access(student_name, current_device_id):
-    if not student_name or not current_device_id:
-        return "waiting", "يرجى كتابة الاسم للتحقق."
-        
-    s_name = "".join(student_name.split()).lower()
-    try:
-        df = pd.read_csv(WHITELIST_CSV, dtype=str)
-        df.columns = [str(c).strip().lower() for c in df.columns]
-        
-        name_col = next((c for c in df.columns if "name" in c or "اسم" in c), None)
-        dev_col = next((c for c in df.columns if "device" in c or "جهاز" in c or "id" in c), None)
-        
-        if not name_col or not dev_col:
-            return "error", "⚠️ خطأ في بنية شيت الـ whitelist، يرجى التأكد من وجود أعمدة name و device_id."
-            
-        for _, row in df.iterrows():
-            row_name = "".join(force_string(row.get(name_col, '')).split()).lower()
-            row_device = force_string(row.get(dev_col, ''))
-            
-            if row_name == s_name:
-                # الحالة 1: الاسم موجود والجهاز لسه متسجلش (أول دخول له)
-                if row_device == "" or row_device.lower() == "nan":
-                    # إرسال تحديث للجوجل شيت لربط هذا الجهاز بالاسم فوراً
-                    payload = {"action": "register_device", "student_name": student_name, "device_id": current_device_id}
-                    try: requests.post(WEB_APP_URL, json=payload)
-                    except: pass
-                    return "granted", "تم تسجيل جهازك بنجاح ومصرح لك بالدخول."
-                
-                # الحالة 2: الجهاز متسجل ومطابق للجهاز الحالي
-                elif row_device == current_device_id:
-                    return "granted", "مرحبًا بك مجددًا."
-                
-                # الحالة 3: الجهاز متسجل بس مختلف عن الجهاز الحالي (محاولة سرقة أو مشاركة حساب)
-                else:
-                    return "denied", f"❌ عذراً يا {student_name}، هذا الحساب مقيد بجهاز آخر بالفعل! غير مسموح لك بالدخول من هذا الجهاز."
-                    
-        return "denied", "❌ عذراً، اسمك غير مسجل في قوائم الطلاب المصرح لهم بدخول المنصة."
-    except Exception as e:
-        return "granted", f"تحذير: تعذر الاتصال بنظام الأمان، سيتم السماح بالدخول مؤقتًا."
-
 def has_submitted_before(student_name, quiz_title):
     try:
         answers_df = pd.read_csv(ANSWERS_CSV, dtype=str)
@@ -119,14 +122,13 @@ def has_submitted_before(student_name, quiz_title):
         s_name = "".join(student_name.split()).lower()
         q_title = "".join(quiz_title.split()).lower()
         
-        name_col = next((c for c in answers_df.columns if "student" in c or "اسم" in c), None)
+        name_col = next((c Glen for c in answers_df.columns if "student" in c or "اسم" in c), None)
         quiz_col = next((c for c in answers_df.columns if "quiz" in c or "امتحان" in c or "اختبار" in c), None)
         
         if name_col and quiz_col:
             for _, row in answers_df.iterrows():
                 row_student = "".join(force_string(row.get(name_col, '')).split()).lower()
                 row_quiz = "".join(force_string(row.get(quiz_col, '')).split()).lower()
-                
                 if row_student == s_name and row_quiz == q_title:
                     return True
     except: pass
@@ -189,26 +191,25 @@ def load_data():
     except: quizzes = {}
     return courses, quizzes
 
+# تفعيل الإعدادات وبصمة المتصفح
 st.set_page_config(page_title="منصتي التعليمية", layout="wide")
-
-# جلب بصمة المتصفح الحالية
 current_device_id = get_device_id()
 
 st.header("🎓 بوابة الطالب التعليمية الآمنة")
 
-# قفل شاشة تسجيل الدخول والتحقق أولاً قبل إظهار أي محتوى للمنصة
+# 🔒 [قفل البوابة الإلكترونية] التحقق أولاً قبل إظهار أي محتوى
 if "access_granted" not in st.session_state:
     st.session_state.access_granted = False
 
 if not st.session_state.access_granted:
-    st.subheader("🔒 تسجيل الدخول ونظام حماية الحسابات")
-    student_name_input = st.text_input("✍️ من فضلك أدخل اسمك الثلاثي المعتمد للدخول للمنصة:")
+    st.subheader("🔒 نظام حماية الأجهزة والتحقق من الهوية")
+    student_name_input = st.text_input("✍️ من فضلك أدخل اسمك الثلاثي المعتمد في الشيت:")
     
-    if st.button("🚪 تسجيل الدخول والتحقق من الجهاز", type="primary"):
+    if st.button("🚪 تسجيل الدخول والتحقق من الجهاز", type="primary", use_container_width=True):
         if not student_name_input.strip():
             st.warning("⚠️ يرجى كتابة الاسم أولاً.")
         elif not current_device_id:
-            st.error("⏳ جاري قراءة بصمة متصفحك.. يرجى الضغط مرة أخرى خلال ثانيتين.")
+            st.error("⏳ جاري قراءة متصفحك.. اضغط مرة أخرى فضلاً.")
             st.rerun()
         else:
             status, msg = check_student_access(student_name_input.strip(), current_device_id)
@@ -220,20 +221,21 @@ if not st.session_state.access_granted:
                 st.rerun()
             else:
                 st.error(msg)
-    st.stop() # يمنع تحميل بقية الكود تماماً طالما لم يتم التحقق
+    st.stop()
 
-# في حالة تخطي الأمان بنجاح:
+# 👤 لو تخطى الأمان، يظهر المحتوى بالكامل:
 student_name = st.session_state.student_name
-st.sidebar.success(f"👤 مرحبًا بك يا هندسة: {student_name}")
+st.sidebar.success(f"👤 الطالب: {student_name}")
 if st.sidebar.button("🔒 تسجيل الخروج"):
     st.session_state.access_granted = False
     st.rerun()
 
+# تحميل الداتا من الشيت
 courses_db, quizzes_db = load_data()
 
 if "current_view" not in st.session_state: st.session_state.current_view = "sharh"
 
-# الـ CSS المخصص للمنصة لإخفاء أزرار الإدارة وجيت هب
+# الـ CSS المخصص لإخفاء أزرار جيت هاب والـ Deploy
 st.markdown("""
     <style>
     a[href*="github.com"], button[title="View source"], .stAppDeployButton, [class*="viewerBadge"], .viewerBadge_link__1S137, [data-testid="stActionButton"] { display: none !important; visibility: hidden !important; }
@@ -245,6 +247,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# أزرار التبديل الأساسية بين الدروس والامتحانات
 box_sharh, box_quiz = st.columns(2)
 with box_sharh:
     if st.button("📺 الشرح والدروس", key="btn_sharh"): st.session_state.current_view = "sharh"
@@ -252,6 +255,7 @@ with box_quiz:
     if st.button("📝 الامتحانات والاختبارات", key="btn_quiz"): st.session_state.current_view = "quiz"
 st.markdown("---")
 
+# [1] قسم الدروس وفيديوهات الشرح
 if st.session_state.current_view == "sharh":
     st.subheader("📺 قسم الدروس وفيديوهات الشرح")
     if courses_db:
@@ -264,12 +268,14 @@ if st.session_state.current_view == "sharh":
             chosen_lesson = st.selectbox("اختر الدرس المراد مشاهدته:", [l['title'] for l in lessons_available])
             current_lesson = next(l for l in lessons_available if l['title'] == chosen_lesson)
             
-            if current_lesson['video']: st.video(current_lesson['video'])
+            if current_lesson['video']: 
+                st.video(current_lesson['video'])
             if current_lesson['pdf']:
                 st.markdown("---")
                 st.write("📄 **المرفقات والمذكرات الخاصة بالدرس:**")
                 st.link_button("📂 اضغط هنا لفتح وتحميل ملف الـ PDF", current_lesson['pdf'], use_container_width=True)
 
+# [2] قسم الامتحانات والتقييمات مع قفل التكرار والوقت
 elif st.session_state.current_view == "quiz":
     st.subheader("📝 قسم الامتحانات والتقييمات الذكية")
     if not quizzes_db:
@@ -303,6 +309,7 @@ elif st.session_state.current_view == "quiz":
         if not quiz_allowed:
             st.error(error_msg)
         else:
+            # قفل التكرار بناءً على اسم الطالب اللي تخطى الأمان
             if has_submitted_before(student_name, chosen_quiz):
                 st.error(f"❌ عذراً يا {student_name}، لقد قمت بأداء هذا الاختبار مسبقاً! غير مسموح بالدخول مرة أخرى.")
             else:
@@ -336,11 +343,12 @@ elif st.session_state.current_view == "quiz":
                                 
                         score = int((correct_count / len(questions)) * 100)
                         
+                        # إرسال النتيجة للشيت
                         payload = {
                             "action": "submit_quiz", "student_name": student_name, "quiz_title": chosen_quiz, 
                             "score": score, "start_time": st.session_state[session_key], "submit_time": submit_time
                         }
-                        try: requests.post(WEB_APP_URL, json=payload)
+                        try: requests.post(WEB_APP_URL, json=payload, timeout=10)
                         except: pass
                         
                         st.markdown("---")
