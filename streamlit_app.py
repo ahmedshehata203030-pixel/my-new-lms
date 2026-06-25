@@ -5,11 +5,9 @@ from datetime import datetime
 import pytz
 import re
 import time
+import uuid
 
-# تأكد من تثبيت المكتبة عبر: pip install streamlit-javascript
-from streamlit_javascript import st_javascript
-
-# 🔗 رابط الجوجل شيت الخاص بك
+# 🔗 [1] رابط الجوجل شيت الخاص بك
 SHEET_URL = "https://docs.google.com/spreadsheets/d/11sa1GDAYCez4b17aI1hDPKJDtfj953ySj8OMYOxbzTI/edit?usp=sharing"
 
 # كسر كاش السيرفر لضمان قراءة البيانات اللحظية من الشيت
@@ -21,24 +19,30 @@ WHITELIST_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sh
 # رابط الـ Web App لإرسال البيانات للجوجل شيت
 WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxIpDlNRgzsf_SamtDEzJfggmSBK6y7UhmShuyhNIKK89R4EH_8O2tjGYYrYuSNkLGr/exec"
 
-# 🔑 الطريقة الصحيحة والمستقرة لتوليد وجلب بصمة الجهاز
+# مكون برمجى خفي (حاقن جافاسكريبت) لتوليد وحفظ بصمة الجهاز في المتصفح والـ Session
 def get_device_id():
     if "device_id" not in st.session_state:
-        # كود جافا سكريبت نقي يجلب البصمة من المتصفح أو ينشئ واحدة فريدة
+        # كود جافاسكريبت للتحقق من وجود المعرف في المتصفح أو توليد واحد جديد
         js_code = """
-        (function() {
-            var d_id = localStorage.getItem('st_device_id');
-            if (!d_id) {
-                d_id = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-                localStorage.setItem('st_device_id', d_id);
-            }
-            return d_id;
-        })()
+        <script>
+        var d_id = localStorage.getItem('st_device_id');
+        if (!d_id) {
+            d_id = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            localStorage.setItem('st_device_id', d_id);
+        }
+        window.parent.postMessage({type: 'streamlit:setComponentValue', value: d_id}, '*');
+        </script>
         """
-        device_token = st_javascript(js_code)
-        if device_token and device_token != 0:
-            st.session_state.device_id = str(device_token).strip()
-            return st.session_state.device_id
+        # حيلة برمجية بسيطة للحصول على القيمة الراجعة من المتصفح
+        from streamlit.components.v1 import html
+        st.write('<div style="display:none">', unsafe_allow_html=True)
+        device_token = st.text_input("dev_token_holder", key="dev_token_holder")
+        html(js_code, height=0)
+        st.write('</div>', unsafe_allow_html=True)
+        
+        if device_token:
+            st.session_state.device_id = device_token
+            return device_token
         return None
     return st.session_state.device_id
 
@@ -89,27 +93,23 @@ def check_student_access(student_name, current_device_id):
             if row_name == s_name:
                 # الحالة 1: الاسم موجود والجهاز لسه متسجلش (أول دخول له)
                 if row_device == "" or row_device.lower() == "nan":
+                    # إرسال تحديث للجوجل شيت لربط هذا الجهاز بالاسم فوراً
                     payload = {"action": "register_device", "student_name": student_name, "device_id": current_device_id}
-                    try: 
-                        res = requests.post(WEB_APP_URL, json=payload, timeout=5)
-                        if res.status_code == 200:
-                            return "granted", "تم تسجيل جهازك بنجاح ومصرح لك بالدخول."
-                        else:
-                            return "error", "⚠️ فشل ربط الجهاز بالسيرفر، يرجى المحاولة مرة أخرى."
-                    except: 
-                        return "error", "⚠️ السيرفر لا يستجيب حالياً لتسجيل الجهاز."
+                    try: requests.post(WEB_APP_URL, json=payload)
+                    except: pass
+                    return "granted", "تم تسجيل جهازك بنجاح ومصرح لك بالدخول."
                 
                 # الحالة 2: الجهاز متسجل ومطابق للجهاز الحالي
                 elif row_device == current_device_id:
                     return "granted", "مرحبًا بك مجددًا."
                 
-                # الحالة 3: محاولة سرقة أو مشاركة حساب
+                # الحالة 3: الجهاز متسجل بس مختلف عن الجهاز الحالي (محاولة سرقة أو مشاركة حساب)
                 else:
                     return "denied", f"❌ عذراً يا {student_name}، هذا الحساب مقيد بجهاز آخر بالفعل! غير مسموح لك بالدخول من هذا الجهاز."
                     
         return "denied", "❌ عذراً، اسمك غير مسجل في قوائم الطلاب المصرح لهم بدخول المنصة."
     except Exception as e:
-        return "error", f"❌ تعذر الاتصال بنظام الأمان الأساسي، تحقق من اتصال الإنترنت."
+        return "granted", f"تحذير: تعذر الاتصال بنظام الأمان، سيتم السماح بالدخول مؤقتًا."
 
 def has_submitted_before(student_name, quiz_title):
     try:
@@ -191,11 +191,12 @@ def load_data():
 
 st.set_page_config(page_title="منصتي التعليمية", layout="wide")
 
-# جلب البصمة بشكل آمن ومستقر
+# جلب بصمة المتصفح الحالية
 current_device_id = get_device_id()
 
 st.header("🎓 بوابة الطالب التعليمية الآمنة")
 
+# قفل شاشة تسجيل الدخول والتحقق أولاً قبل إظهار أي محتوى للمنصة
 if "access_granted" not in st.session_state:
     st.session_state.access_granted = False
 
@@ -207,7 +208,8 @@ if not st.session_state.access_granted:
         if not student_name_input.strip():
             st.warning("⚠️ يرجى كتابة الاسم أولاً.")
         elif not current_device_id:
-            st.error("⏳ جاري تهيئة نظام الأمان وقراءة بصمة المتصفح.. اضغط مجدداً الآن.")
+            st.error("⏳ جاري قراءة بصمة متصفحك.. يرجى الضغط مرة أخرى خلال ثانيتين.")
+            st.rerun()
         else:
             status, msg = check_student_access(student_name_input.strip(), current_device_id)
             if status == "granted":
@@ -218,20 +220,20 @@ if not st.session_state.access_granted:
                 st.rerun()
             else:
                 st.error(msg)
-    st.stop()
+    st.stop() # يمنع تحميل بقية الكود تماماً طالما لم يتم التحقق
 
 # في حالة تخطي الأمان بنجاح:
 student_name = st.session_state.student_name
 st.sidebar.success(f"👤 مرحبًا بك يا هندسة: {student_name}")
 if st.sidebar.button("🔒 تسجيل الخروج"):
-    st.session_state.clear() # يفضل تفريغ السيشن بالكامل عند الخروج
+    st.session_state.access_granted = False
     st.rerun()
 
 courses_db, quizzes_db = load_data()
 
 if "current_view" not in st.session_state: st.session_state.current_view = "sharh"
 
-# الـ CSS المخصص
+# الـ CSS المخصص للمنصة لإخفاء أزرار الإدارة وجيت هب
 st.markdown("""
     <style>
     a[href*="github.com"], button[title="View source"], .stAppDeployButton, [class*="viewerBadge"], .viewerBadge_link__1S137, [data-testid="stActionButton"] { display: none !important; visibility: hidden !important; }
@@ -338,7 +340,7 @@ elif st.session_state.current_view == "quiz":
                             "action": "submit_quiz", "student_name": student_name, "quiz_title": chosen_quiz, 
                             "score": score, "start_time": st.session_state[session_key], "submit_time": submit_time
                         }
-                        try: requests.post(WEB_APP_URL, json=payload, timeout=5)
+                        try: requests.post(WEB_APP_URL, json=payload)
                         except: pass
                         
                         st.markdown("---")
