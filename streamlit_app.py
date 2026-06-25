@@ -290,7 +290,6 @@ elif st.session_state.current_view == "quiz":
                     for i, q in enumerate(questions):
                         st.markdown(f"#### **سؤال {i+1}: {q['question']}**")
                         
-                        # 💡 عرض الاختيارات المتاحة كنص عادي واضح جداً للطالب ومقاوم لأي اختفاء
                         letters = ["A", "B", "C", "D"]
                         available_options_for_radio = []
                         
@@ -302,7 +301,6 @@ elif st.session_state.current_view == "quiz":
                             else:
                                 available_options_for_radio.append(letter)
                         
-                        # زر الاختيار البسيط والسريع
                         student_answers[i] = st.radio(f"اختر إجابة السؤال {i+1}:", options=available_options_for_radio, key=f"quiz_radio_q_{i}_{chosen_quiz}", horizontal=True)
                         st.markdown("---")
                     
@@ -315,9 +313,10 @@ elif st.session_state.current_view == "quiz":
                                 
                         score = int((correct_count / len(questions)) * 100)
                         
+                        # 💡 التعديل السحري: قسمة الـ score على 100 لتتوافق مع فورمات النسبة المئوية في جوجل شيت
                         payload = {
                             "action": "submit_quiz", "student_name": student_name, "quiz_title": chosen_quiz, 
-                            "score": score, "start_time": st.session_state[session_key], "submit_time": submit_time
+                            "score": score / 100, "start_time": st.session_state[session_key], "submit_time": submit_time
                         }
                         try: requests.post(WEB_APP_URL, json=payload)
                         except: pass
