@@ -15,7 +15,7 @@ QUIZZES_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&shee
 ANSWERS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=student_results&v={int(time.time())}")
 WHITELIST_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=whitelist&v={int(time.time())}")
 
-# رابط الـ Web App لإرسال البيانات للجوجل شيت (عند إرسال الإجابات)
+# رابط الـ Web App لإرسال البيانات للجوجل شيت
 WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxIpDlNRgzsf_SamtDEzJfggmSBK6y7UhmShuyhNIKK89R4EH_8O2tjGYYrYuSNkLGr/exec"
 
 def clean_date_string(date_str):
@@ -42,54 +42,39 @@ def force_string(val):
         return ""
     return str(val).strip()
 
-# الدالة للتحقق من الاسم والرقم السري من الجوجل شيت
 def verify_student_credentials(student_name, password):
     if not student_name or not password:
         return "waiting", "يرجى إدخال الاسم والرقم السري."
-        
     s_name = "".join(student_name.split()).lower()
     s_pass = str(password).strip()
-    
     try:
         df = pd.read_csv(WHITELIST_CSV, dtype=str)
         df.columns = [str(c).strip().lower() for c in df.columns]
-        
         name_col = next((c for c in df.columns if "name" in c or "اسم" in c), None)
         pass_col = next((c for c in df.columns if "pass" in c or "رقم" in c or "سري" in c), None)
-        
         if not name_col or not pass_col:
-            return "error", "⚠️ خطأ في بنية شيت الـ whitelist، يرجى التأكد من وجود أعمدة name و password."
-            
+            return "error", "⚠️ خطأ في بنية شيت الـ whitelist."
         for _, row in df.iterrows():
             row_name = "".join(force_string(row.get(name_col, '')).split()).lower()
             row_pass = force_string(row.get(pass_col, ''))
-            
-            if row_name == s_name:
-                if row_pass == s_pass:
-                    return "granted", "تم تسجيل الدخول بنجاح."
-                else:
-                    return "denied", "❌ الرقم السري الذي أدخلته غير صحيح!"
-                    
-        return "denied", "❌ عذراً، هذا الاسم غير مسجل في قوائم الطلاب."
-    except Exception as e:
-        return "error", "⚠️ تعذر الاتصال بنظام التحقق، يرجى المحاولة مرة أخرى."
+            if row_name == s_name and row_pass == s_pass:
+                return "granted", "تم تسجيل الدخول بنجاح."
+        return "denied", "❌ عذراً، الاسم أو الرقم السري غير صحيح."
+    except:
+        return "error", "⚠️ تعذر الاتصال بنظام التحقق."
 
 def has_submitted_before(student_name, quiz_title):
     try:
         answers_df = pd.read_csv(ANSWERS_CSV, dtype=str)
         answers_df.columns = [str(c).strip().lower().replace("_", "").replace(" ", "") for c in answers_df.columns]
-        
         s_name = "".join(student_name.split()).lower()
         q_title = "".join(quiz_title.split()).lower()
-        
         name_col = next((c for c in answers_df.columns if "student" in c or "اسم" in c), None)
         quiz_col = next((c for c in answers_df.columns if "quiz" in c or "امتحان" in c or "اختبار" in c), None)
-        
         if name_col and quiz_col:
             for _, row in answers_df.iterrows():
                 row_student = "".join(force_string(row.get(name_col, '')).split()).lower()
                 row_quiz = "".join(force_string(row.get(quiz_col, '')).split()).lower()
-                
                 if row_student == s_name and row_quiz == q_title:
                     return True
     except: pass
@@ -100,27 +85,21 @@ def load_data():
         lessons_df = pd.read_csv(LESSONS_CSV, dtype=str)
         raw_columns = [str(c).strip() for c in lessons_df.columns]
         normalized_columns = [c.lower().replace("_", "").replace(" ", "") for c in raw_columns]
-        
-        c_title_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "course" in c or "كورس" in c or "دبلوم" in c or "وحدة" in c))]
-        l_title_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "lesson" in c or "درس" in c or "محاضر" in c or "عنوان" in c))]
-        v_url_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "video" in c or "فيديو" in c or "رابط" in c))]
-        p_url_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "pdf" in c or "ملف" in c or "مذكر" in c))]
+        c_title_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "course" in c or "كورس" in c))]
+        l_title_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "lesson" in c or "درس" in c))]
+        v_url_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "video" in c or "فيديو" in c))]
+        p_url_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "pdf" in c or "ملف" in c))]
         
         courses = {}
         for idx, row in lessons_df.iterrows():
             c_title = force_string(row.get(c_title_col, ''))
             if not c_title: continue
             if c_title not in courses: courses[c_title] = []
-            
-            lesson_actual_title = force_string(row.get(l_title_col, ''))
-            v_url = force_string(row.get(v_url_col, ''))
-            p_url = force_string(row.get(p_url_col, ''))
-            
-            if not lesson_actual_title and not v_url and not p_url: continue
-            if not lesson_actual_title:
-                lesson_actual_title = f"المحاضرة رقم {len(courses[c_title])+1}"
-                
-            courses[c_title].append({"title": lesson_actual_title, "video": v_url, "pdf": p_url})
+            courses[c_title].append({
+                "title": force_string(row.get(l_title_col, f"المحاضرة {len(courses[c_title])+1}")),
+                "video": force_string(row.get(v_url_col, '')),
+                "pdf": force_string(row.get(p_url_col, ''))
+            })
     except: courses = {}
 
     try:
@@ -128,15 +107,17 @@ def load_data():
         raw_q_columns = [str(c).strip() for c in quizzes_df.columns]
         norm_q_columns = [c.lower().replace("_", "").replace(" ", "") for c in raw_q_columns]
         
-        q_title_col = raw_q_columns[norm_q_columns.index(next(c for c in norm_q_columns if "quiz" in c or "امتحان" in c or "اختبار" in c))]
+        q_title_col = raw_q_columns[norm_q_columns.index(next(c for c in norm_q_columns if "quiz" in c or "امتحان" in c))]
         q_text_col = raw_q_columns[norm_q_columns.index(next(c for c in norm_q_columns if "question" in c or "سؤال" in c))]
         
-        opt_a_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "opta" in c or "opt_a" in c or (c.endswith("a") and len(c)<=5) or "أ" in c), None)
-        opt_b_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "optb" in c or "opt_b" in c or (c.endswith("b") and len(c)<=5) or "ب" in c), None)
-        opt_c_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "optc" in c or "opt_c" in c or (c.endswith("c") and len(c)<=5) or "ج" in c), None)
-        opt_d_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "optd" in c or "opt_d" in c or (c.endswith("d") and len(c)<=5) or "د" in c), None)
+        opt_a_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "opta" in c or "opt_a" in c or (c.endswith("a") and len(c)<=5)), None)
+        opt_b_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "optb" in c or "opt_b" in c or (c.endswith("b") and len(c)<=5)), None)
+        opt_c_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "optc" in c or "opt_c" in c or (c.endswith("c") and len(c)<=5)), None)
+        opt_d_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "optd" in c or "opt_d" in c or (c.endswith("d") and len(c)<=5)), None)
         
-        correct_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "correct" in c or "إجابة" in c or "الحل" in c), None)
+        # التقاط عمود الدرجة من الشيت تلقائياً
+        degree_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "degree" in c or "درج" in c or "درجه" in c), None)
+        correct_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "correct" in c or "إجابة" in c), None)
         
         quizzes = {}
         for _, row in quizzes_df.iterrows():
@@ -147,6 +128,13 @@ def load_data():
             raw_correct = force_string(row.get(correct_col, '')).upper()
             final_correct = raw_correct[-1] if raw_correct.startswith('OPT') else raw_correct
             
+            # قراءة درجة السؤال (القيمة الافتراضية 1.0 إذا كان الحقل فارغاً)
+            try:
+                q_deg = float(row.get(degree_col, 1.0))
+                if pd.isna(q_deg) or q_deg <= 0: q_deg = 1.0
+            except:
+                q_deg = 1.0
+                
             quizzes[q_title].append({
                 "question": force_string(row.get(q_text_col, '')),
                 "options": [
@@ -156,6 +144,7 @@ def load_data():
                     force_string(row.get(opt_d_col, '') if opt_d_col else '')
                 ],
                 "correct": final_correct,
+                "degree": q_deg,
                 "start_at": row.get('startat', None),
                 "end_at": row.get('endat', None)
             })
@@ -164,7 +153,7 @@ def load_data():
 
 st.set_page_config(page_title="منصتي التعليمية", layout="wide")
 
-# الـ CSS الآمن لحظر شريط الأدوات العلوي والتحكم الكامل في تصميم الأزرار الرئيسية
+# الـ CSS الكلاسيكي الخاص بك لضبط مظهر الأزرار والهيدر
 st.markdown("""
     <style>
     [data-testid="stHeaderActionElements"] { display: none !important; visibility: hidden !important; }
@@ -186,12 +175,10 @@ if "access_granted" not in st.session_state:
 
 if not st.session_state.access_granted:
     st.subheader("🔒 تسجيل الدخول الحصري للطلاب")
-    
     with st.form(key="login_form"):
         student_name_input = st.text_input("✍️ اسم الطالب الثلاثي:")
         student_password_input = st.text_input("🔑 الرقم السري:", type="password")
         submit_login = st.form_submit_button("🚪 دخول المنصة", type="primary")
-        
         if submit_login:
             if not student_name_input.strip() or not student_password_input.strip():
                 st.warning("⚠️ يرجى كتابة الاسم والرقم السري أولاً.")
@@ -229,13 +216,11 @@ if st.session_state.current_view == "sharh":
     if courses_db:
         chosen_course = st.selectbox("اختر الوحدة:", list(courses_db.keys()))
         lessons_available = courses_db[chosen_course]
-        
         if not lessons_available:
             st.info("👋 قريباً.. سيتم رفع دروس ومحاضرات هذا الكورس.")
         else:
             chosen_lesson = st.selectbox("اختر الدرس المراد مشاهدته:", [l['title'] for l in lessons_available])
             current_lesson = next(l for l in lessons_available if l['title'] == chosen_lesson)
-            
             if current_lesson['video']: st.video(current_lesson['video'])
             if current_lesson['pdf']:
                 st.markdown("---")
@@ -248,7 +233,6 @@ elif st.session_state.current_view == "quiz":
         st.info("👋 لا توجد امتحانات مرفوعة في الشيت حالياً...")
     else:
         chosen_quiz = st.selectbox("اختر الامتحان المطلوب للدخول:", list(quizzes_db.keys()))
-        
         cairo_tz = pytz.timezone('Africa/Cairo')
         now = datetime.now(cairo_tz).replace(tzinfo=None)
         
@@ -262,21 +246,19 @@ elif st.session_state.current_view == "quiz":
         
         if (first_q["start_at"] and str(first_q["start_at"]).lower() != 'nan' and str(first_q["start_at"]).strip() != '') and not start_dt:
             quiz_allowed = False
-            error_msg = "⚠️ صيغة التاريخ في الشيت غير صحيحة، يرجى كتابته بصيغة: YYYY-MM-DD HH:MM:SS"
-        
+            error_msg = "⚠️ صيغة التاريخ في الشيت غير صحيحة."
         if quiz_allowed and start_dt and now < start_dt:
             quiz_allowed = False
             error_msg = f"⏳ عذراً، هذا الامتحان لم يبدأ بعد. ميعاد البدء المحدد: {first_q['start_at']}"
-            
         if quiz_allowed and end_dt and now > end_dt:
             quiz_allowed = False
-            error_msg = f"🚫 عذراً، انتهى الوقت المحدد لحل هذا الامتحان. كان آخر ميعاد: {first_q['end_at']}"
+            error_msg = f"🚫 عذراً، انتهى الوقت المحدد لحل هذا الامتحان."
 
         if not quiz_allowed:
             st.error(error_msg)
         else:
             if has_submitted_before(student_name, chosen_quiz):
-                st.error(f"❌ عذراً يا {student_name}، لقد قمت بأداء هذا الاختبار مسبقاً! غير مسموح بالدخول مرة أخرى.")
+                st.error(f"❌ عذراً يا {student_name}، لقد قمت بأداء هذا الاختبار مسبقاً!")
             else:
                 session_key = f"start_{chosen_quiz}"
                 if session_key not in st.session_state:
@@ -288,11 +270,11 @@ elif st.session_state.current_view == "quiz":
                     
                     student_answers = {}
                     for i, q in enumerate(questions):
-                        st.markdown(f"#### **سؤال {i+1}: {q['question']}**")
+                        # عرض نص السؤال والدرجة الخاصة به بجانبه
+                        st.markdown(f"#### **سؤال {i+1}: {q['question']}** *[الدرجة: {q['degree']}]*")
                         
                         letters = ["A", "B", "C", "D"]
                         available_options_for_radio = []
-                        
                         for idx, letter in enumerate(letters):
                             opt_text = str(q['options'][idx]).strip()
                             if opt_text != "" and opt_text.lower() != 'nan':
@@ -306,22 +288,29 @@ elif st.session_state.current_view == "quiz":
                     
                     if st.form_submit_button("📥 إرسال الإجابات وإنهاء الامتحان"):
                         submit_time = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
-                        correct_count = 0
+                        
+                        total_earned_degrees = 0.0
+                        total_quiz_degrees = 0.0
+                        
                         for i, q in enumerate(questions):
                             selected_letter = str(student_answers[i]).strip().upper()
-                            if selected_letter == str(q['correct']).strip().upper(): correct_count += 1
+                            q_weight = q['degree']
+                            total_quiz_degrees += q_weight
+                            
+                            if selected_letter == str(q['correct']).strip().upper():
+                                total_earned_degrees += q_weight
                                 
-                        score = int((correct_count / len(questions)) * 100)
+                        # حساب النسبة بناءً على الأوزان المحددة للأسئلة
+                        score_percentage = int((total_earned_degrees / total_quiz_degrees) * 100)
                         
-                        # 💡 التعديل السحري: قسمة الـ score على 100 لتتوافق مع فورمات النسبة المئوية في جوجل شيت
                         payload = {
                             "action": "submit_quiz", "student_name": student_name, "quiz_title": chosen_quiz, 
-                            "score": score / 100, "start_time": st.session_state[session_key], "submit_time": submit_time
+                            "score": score_percentage / 100, "start_time": st.session_state[session_key], "submit_time": submit_time
                         }
                         try: requests.post(WEB_APP_URL, json=payload)
                         except: pass
                         
                         st.markdown("---")
-                        if score >= 50: st.success(f"🎉 ممتاز يا {student_name}! درجتك: {score}%")
-                        else: st.error(f"😞 للأسف يا {student_name} درجتك: {score}%.")
+                        if score_percentage >= 50: st.success(f"🎉 ممتاز يا {student_name}! درجتك الكلية: {score_percentage}%")
+                        else: st.error(f"😞 للأسف يا {student_name} درجتك الكلية: {score_percentage}%.")
                         st.balloons()
