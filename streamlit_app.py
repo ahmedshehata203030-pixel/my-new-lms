@@ -42,7 +42,7 @@ def force_string(val):
         return ""
     return str(val).strip()
 
-# الدالة الجديدة للتحقق من الاسم والرقم السري من الجوجل شيت
+# الدالة للتحقق من الاسم والرقم السري من الجوجل شيت
 def verify_student_credentials(student_name, password):
     if not student_name or not password:
         return "waiting", "يرجى إدخال الاسم والرقم السري."
@@ -154,6 +154,27 @@ def load_data():
 
 st.set_page_config(page_title="منصتي التعليمية", layout="wide")
 
+# 🚨 الـ CSS المطور والمحدث لحظر شريط الأدوات بالكامل وأزرار جيت هب والمشاركة الجديدة 🚨
+st.markdown("""
+    <style>
+    /* إخفاء شريط الأدوات بالكامل (جيت هب، النجمة، التعديل، القائمة الثلاثية الجديدة) */
+    [data-testid="stHeaderActionElements"] { display: none !important; visibility: hidden !important; }
+    
+    /* إخفاء زر المشاركة Share الجديد من الهيدر */
+    [data-testid="stHeader"] button { display: none !important; visibility: hidden !important; }
+    
+    /* إخفاء بقية أزرار الإدارة والـ جيت هب الكلاسيكية تماماً */
+    a[href*="github.com"], button[title="View source"], .stAppDeployButton, [class*="viewerBadge"], .viewerBadge_link__1S137, [data-testid="stActionButton"] { display: none !important; visibility: hidden !important; }
+    [data-testid="stHeader"] button[aria-label="Manage app"], [data-testid="stHeader"] button[aria-label="Share this app"] { display: none !important; visibility: hidden !important; }
+    
+    /* تنسيق أزرار الشرح والامتحانات بالمنتصف بشكل احترافي */
+    div[data-testid="stHorizontalBlock"] { display: flex !important; justify-content: center !important; gap: 25px !important; }
+    div.stButton > button { width: 100% !important; height: 110px !important; font-size: 26px !important; font-weight: bold !important; color: white !important; border-radius: 15px !important; }
+    div[data-testid="stHorizontalBlock"] > div:nth-of-type(1) div.stButton > button { background-color: #1A365D !important; }
+    div[data-testid="stHorizontalBlock"] > div:nth-of-type(2) div.stButton > button { background-color: #064E3B !important; }
+    </style>
+""", unsafe_allow_html=True)
+
 st.header("🎓 بوابة الطالب التعليمية")
 
 # قفل شاشة تسجيل الدخول
@@ -163,7 +184,6 @@ if "access_granted" not in st.session_state:
 if not st.session_state.access_granted:
     st.subheader("🔒 تسجيل الدخول الحصري للطلاب")
     
-    # نموذج تسجيل الدخول
     with st.form(key="login_form"):
         student_name_input = st.text_input("✍️ اسم الطالب الثلاثي:")
         student_password_input = st.text_input("🔑 الرقم السري:", type="password")
@@ -184,7 +204,7 @@ if not st.session_state.access_granted:
                     st.error(msg)
     st.stop()
 
-# في حالة تخطي الأمان بنجاح:
+# في حالة نجاح الدخول:
 student_name = st.session_state.student_name
 st.sidebar.success(f"👤 مرحبًا بك يا هندسة: {student_name}")
 if st.sidebar.button("🔒 تسجيل الخروج"):
@@ -194,18 +214,6 @@ if st.sidebar.button("🔒 تسجيل الخروج"):
 courses_db, quizzes_db = load_data()
 
 if "current_view" not in st.session_state: st.session_state.current_view = "sharh"
-
-# الـ CSS المخصص للمنصة لإخفاء أزرار الإدارة وجيت هب
-st.markdown("""
-    <style>
-    a[href*="github.com"], button[title="View source"], .stAppDeployButton, [class*="viewerBadge"], .viewerBadge_link__1S137, [data-testid="stActionButton"] { display: none !important; visibility: hidden !important; }
-    [data-testid="stHeader"] button[aria-label="Manage app"], [data-testid="stHeader"] button[aria-label="Share this app"] { display: none !important; visibility: hidden !important; }
-    div[data-testid="stHorizontalBlock"] { display: flex !important; justify-content: center !important; gap: 25px !important; }
-    div.stButton > button { width: 100% !important; height: 110px !important; font-size: 26px !important; font-weight: bold !important; color: white !important; border-radius: 15px !important; }
-    div[data-testid="stHorizontalBlock"] > div:nth-of-type(1) div.stButton > button { background-color: #1A365D !important; }
-    div[data-testid="stHorizontalBlock"] > div:nth-of-type(2) div.stButton > button { background-color: #064E3B !important; }
-    </style>
-""", unsafe_allow_html=True)
 
 box_sharh, box_quiz = st.columns(2)
 with box_sharh:
