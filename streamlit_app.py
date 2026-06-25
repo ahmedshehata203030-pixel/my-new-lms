@@ -19,10 +19,10 @@ WHITELIST_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sh
 # رابط الـ Web App لإرسال البيانات للجوجل شيت
 WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxIpDlNRgzsf_SamtDEzJfggmSBK6y7UhmShuyhNIKK89R4EH_8O2tjGYYrYuSNkLGr/exec"
 
-# مكون برمجى خفي (حاقن جافاسكريبت) لتوليد وحفظ بصمة الجهاز في المتصفح والـ Session ومنع الـ Autofill الخاطئ
+# مكون برمجى خفي متطور لتوليد وبصم الأجهزة بدون تسريب وبدون Autofill خاطئ
 def get_device_id():
     if "device_id" not in st.session_state:
-        # كود جافاسكريبت للتحقق من وجود المعرف في المتصفح أو توليد واحد جديد وضخه في حقل الـ password بدقة
+        # كود جافاسكريبت لحقن التوكن في الحقل النصي المخفي بدقة عبر الـ placeholder
         js_code = """
         <script>
         var d_id = localStorage.getItem('st_device_id');
@@ -30,25 +30,29 @@ def get_device_id():
             d_id = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
             localStorage.setItem('st_device_id', d_id);
         }
-        var input = window.parent.document.querySelector('input[type="password"]');
-        if(input) {
+        var input = window.parent.document.querySelector('input[placeholder="dev_safe_holder"]');
+        if (input && input.value !== d_id) {
             input.value = d_id;
             input.dispatchEvent(new Event('input', { bubbles: true }));
         }
         </script>
         """
-        # حيلة برمجية بسيطة للحصول على القيمة الراجعة من المتصفح
+        # حيلة CSS قوية لإخفاء حاوية عنصر الـ TextInput بالكامل فلا يظهر أبداً في الواجهة
+        st.markdown("""
+            <style>
+            div[data-testid="stTextInput"]:has(input[placeholder="dev_safe_holder"]) {
+                display: none !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+        
+        # حقل نصي عادي وليس password (لحماية الفورم من الـ Autofill التلقائي للمتصفحات)
+        device_token = st.text_input("hidden_device_label", placeholder="dev_safe_holder", key="dev_token_holder")
+        
         from streamlit.components.v1 import html
-        st.write('<div style="display:none">', unsafe_allow_html=True)
-        # جعل نوع الحقل password يمنع المتصفح تماماً من كتابة اسمك فيه تلقائياً
-        device_token = st.text_input("dev_token_holder", type="password", key="dev_token_holder")
         html(js_code, height=0)
-        st.write('</div>', unsafe_allow_html=True)
         
         if device_token:
-            # خط دفاع ثانٍ في حالة عاند المتصفح وقام بكتابة نص عادي، يتم تصحيحه أوتوماتيكياً
-            if not device_token.startswith("dev_"):
-                device_token = f"dev_{uuid.uuid4().hex[:12]}"
             st.session_state.device_id = device_token
             return device_token
         return None
@@ -101,7 +105,6 @@ def check_student_access(student_name, current_device_id):
             if row_name == s_name:
                 # الحالة 1: الاسم موجود والجهاز لسه متسجلش (أول دخول له)
                 if row_device == "" or row_device.lower() == "nan":
-                    # إرسال تحديث للجوجل شيت لربط هذا الجهاز بالاسم فوراً
                     payload = {"action": "register_device", "student_name": student_name, "device_id": current_device_id}
                     try: requests.post(WEB_APP_URL, json=payload)
                     except: pass
@@ -199,7 +202,7 @@ def load_data():
 
 st.set_page_config(page_title="منصتي التعليمية", layout="wide")
 
-# جلب بصمة المتصفح الحالية
+# جلب بصمة المتصفح الحالية الآمنة
 current_device_id = get_device_id()
 
 st.header("🎓 بوابة الطالب التعليمية الآمنة")
