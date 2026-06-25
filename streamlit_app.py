@@ -9,24 +9,20 @@ import time
 # 🔗 رابط الجوجل شيت الخاص بك
 SHEET_URL = "https://docs.google.com/spreadsheets/d/11sa1GDAYCez4b17aI1hDPKJDtfj953ySj8OMYOxbzTI/edit?usp=sharing"
 
-# كسر كاش السيرفر لضمان قراءة البيانات اللحظية من الشيت
+# كسر كاش السيرفر
 LESSONS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=lessons&v={int(time.time())}")
 QUIZZES_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=quizzes&v={int(time.time())}")
 ANSWERS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=student_results&v={int(time.time())}")
 WHITELIST_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=whitelist&v={int(time.time())}")
 
-# رابط الـ Web App لإرسال البيانات للجوجل شيت
 WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxIpDlNRgzsf_SamtDEzJfggmSBK6y7UhmShuyhNIKK89R4EH_8O2tjGYYrYuSNkLGr/exec"
 
 def clean_date_string(date_str):
-    if not date_str or pd.isna(date_str) or str(date_str).lower() == 'nan' or str(date_str).strip() == '':
-        return None
+    if not date_str or pd.isna(date_str) or str(date_str).lower() == 'nan' or str(date_str).strip() == '': return None
     s = str(date_str).strip().replace('/', '-').replace('م', '').replace('ص', '').strip()
     s = re.sub(r'\s+', ' ', s)
-    formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"]
-    for fmt in formats:
-        try:
-            return datetime.strptime(s, fmt)
+    for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"]:
+        try: return datetime.strptime(s, fmt)
         except: pass
     return None
 
@@ -50,9 +46,9 @@ def verify_student_credentials(student_name, password):
 
 def has_submitted_before(student_name, quiz_title):
     try:
-        df = pd.read_csv(ANSWERS_CSV, dtype=str)
-        df.columns = [str(c).strip().lower().replace("_", "").replace(" ", "") for c in df.columns]
-        for _, row in df.iterrows():
+        answers_df = pd.read_csv(ANSWERS_CSV, dtype=str)
+        answers_df.columns = [str(c).strip().lower().replace("_", "").replace(" ", "") for c in answers_df.columns]
+        for _, row in answers_df.iterrows():
             if "".join(force_string(row.get('studentname', '')).split()).lower() == "".join(student_name.split()).lower() and "".join(force_string(row.get('quiztitle', '')).split()).lower() == "".join(quiz_title.split()).lower():
                 return True
     except: pass
@@ -76,15 +72,15 @@ def load_data():
     except: courses = {}
 
     try:
-        q_df = pd.read_csv(QUIZZES_CSV, dtype=str)
-        raw_q_cols = [str(c).strip() for c in q_df.columns]
+        quizzes_df = pd.read_csv(QUIZZES_CSV, dtype=str)
+        raw_q_cols = [str(c).strip() for c in quizzes_df.columns]
         norm_q_cols = [c.lower().replace("_", "").replace(" ", "") for c in raw_q_cols]
         q_title_col = raw_q_cols[norm_q_cols.index(next(c for c in norm_q_cols if "quiz" in c or "امتحان" in c))]
         q_text_col = raw_q_cols[norm_q_cols.index(next(c for c in norm_q_cols if "question" in c or "سؤال" in c))]
         deg_col = next((raw_q_cols[i] for i, c in enumerate(norm_q_cols) if "degree" in c or "درج" in c), None)
         corr_col = next((raw_q_cols[i] for i, c in enumerate(norm_q_cols) if "correct" in c or "إجابة" in c), None)
         quizzes = {}
-        for _, row in q_df.iterrows():
+        for _, row in quizzes_df.iterrows():
             q_title = force_string(row.get(q_title_col, ''))
             if not q_title: continue
             if q_title not in quizzes: quizzes[q_title] = []
@@ -95,7 +91,7 @@ def load_data():
                 "options": [force_string(row.get(c, '')) for c in raw_q_cols if re.match(r'opt[a-d]', c.lower().replace("_", ""))],
                 "correct": force_string(row.get(corr_col, '')).upper(),
                 "degree": q_deg,
-                "start": row.get('startat'), "end": row.get('endat')
+                "start_at": row.get('startat'), "end_at": row.get('endat')
             })
     except: quizzes = {}
     return courses, quizzes
@@ -104,7 +100,6 @@ st.set_page_config(page_title="منصتي التعليمية", layout="wide")
 st.markdown("<style>[data-testid='stHeader']{display:none} .stButton>button{width:100%; height:80px; font-size:20px; font-weight:bold;}</style>", unsafe_allow_html=True)
 
 if "access_granted" not in st.session_state: st.session_state.access_granted = False
-
 if not st.session_state.access_granted:
     with st.form("login"):
         name = st.text_input("✍️ اسم الطالب:")
@@ -139,13 +134,11 @@ else:
             ans = {}
             for i, q in enumerate(quizzes_db[chosen_quiz]):
                 st.markdown(f"#### **سؤال {i+1}: {q['question']}** *[الدرجة: {int(q['degree'])}]*")
-                # تعديل: إضافة index=None لإلغاء الاختيار التلقائي
                 ans[i] = st.radio(f"اختر إجابة {i+1}:", options=["A", "B", "C", "D"], key=f"q{i}", index=None, horizontal=True)
                 st.markdown("---")
             
             if st.form_submit_button("📥 إرسال الإجابات"):
-                if None in ans.values():
-                    st.warning("⚠️ يرجى الإجابة على جميع الأسئلة قبل الإرسال!")
+                if None in ans.values(): st.warning("⚠️ يرجى الإجابة على جميع الأسئلة قبل الإرسال!")
                 else:
                     total_earned = 0.0
                     for i, q in enumerate(quizzes_db[chosen_quiz]):
