@@ -115,7 +115,6 @@ def load_data():
         opt_c_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "optc" in c or "opt_c" in c or (c.endswith("c") and len(c)<=5)), None)
         opt_d_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "optd" in c or "opt_d" in c or (c.endswith("d") and len(c)<=5)), None)
         
-        # التقاط عمود الدرجة من الشيت تلقائياً
         degree_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "degree" in c or "درج" in c or "درجه" in c), None)
         correct_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "correct" in c or "إجابة" in c), None)
         
@@ -128,10 +127,14 @@ def load_data():
             raw_correct = force_string(row.get(correct_col, '')).upper()
             final_correct = raw_correct[-1] if raw_correct.startswith('OPT') else raw_correct
             
-            # قراءة درجة السؤال (القيمة الافتراضية 1.0 إذا كان الحقل فارغاً)
             try:
-                q_deg = float(row.get(degree_col, 1.0))
-                if pd.isna(q_deg) or q_deg <= 0: q_deg = 1.0
+                # محاولة قراءة الدرجة كـ float، ولو الحقل فاضي أو فيه مشكلة بنخليه 1.0 تلقائي
+                val_deg = row.get(degree_col, "1")
+                if pd.isna(val_deg) or str(val_deg).strip() == "" or str(val_deg).lower() == 'nan':
+                    q_deg = 1.0
+                else:
+                    q_deg = float(str(val_deg).strip())
+                if q_deg <= 0: q_deg = 1.0
             except:
                 q_deg = 1.0
                 
@@ -153,7 +156,6 @@ def load_data():
 
 st.set_page_config(page_title="منصتي التعليمية", layout="wide")
 
-# الـ CSS الكلاسيكي الخاص بك لضبط مظهر الأزرار والهيدر
 st.markdown("""
     <style>
     [data-testid="stHeaderActionElements"] { display: none !important; visibility: hidden !important; }
@@ -270,8 +272,8 @@ elif st.session_state.current_view == "quiz":
                     
                     student_answers = {}
                     for i, q in enumerate(questions):
-                        # عرض نص السؤال والدرجة الخاصة به بجانبه
-                        st.markdown(f"#### **سؤال {i+1}: {q['question']}** *[الدرجة: {q['degree']}]*")
+                        # عرض الدرجة الفردية للسؤال بشكل شيك (مثال: [الدرجة: 5])
+                        st.markdown(f"#### **سؤال {i+1}: {q['question']}** *[الدرجة: {int(q['degree']) if q['degree'].is_integer() else q['degree']}]*")
                         
                         letters = ["A", "B", "C", "D"]
                         available_options_for_radio = []
@@ -300,17 +302,22 @@ elif st.session_state.current_view == "quiz":
                             if selected_letter == str(q['correct']).strip().upper():
                                 total_earned_degrees += q_weight
                                 
-                        # حساب النسبة بناءً على الأوزان المحددة للأسئلة
-                        score_percentage = int((total_earned_degrees / total_quiz_degrees) * 100)
+                        # تنسيق الدرجة النهائية لعرضها بدون كسور لو كانت رقم صحيح
+                        display_earned = int(total_earned_degrees) if total_earned_degrees.is_integer() else total_earned_degrees
+                        display_total = int(total_quiz_degrees) if total_quiz_degrees.is_integer() else total_quiz_degrees
                         
+                        # 💡 التعديل الجوهري: إرسال المجموع الفعلي مباشرة كـ رقم للشيت
                         payload = {
                             "action": "submit_quiz", "student_name": student_name, "quiz_title": chosen_quiz, 
-                            "score": score_percentage / 100, "start_time": st.session_state[session_key], "submit_time": submit_time
+                            "score": display_earned, "start_time": st.session_state[session_key], "submit_time": submit_time
                         }
                         try: requests.post(WEB_APP_URL, json=payload)
                         except: pass
                         
                         st.markdown("---")
-                        if score_percentage >= 50: st.success(f"🎉 ممتاز يا {student_name}! درجتك الكلية: {score_percentage}%")
-                        else: st.error(f"😞 للأسف يا {student_name} درجتك الكلية: {score_percentage}%.")
+                        # حساب نسبة النجاح داخلياً فقط لتحديد تفعيل الـ success أو الـ error (أكبر من أو يساوي 50%)
+                        if (total_earned_degrees / total_quiz_degrees) >= 0.5: 
+                            st.success(f"🎉 ممتاز يا {student_name}! درجتك الكلية: {display_earned} من {display_total}")
+                        else: 
+                            st.error(f"😞 للأسف يا {student_name} درجتك الكلية: {display_earned} من {display_total}")
                         st.balloons()
