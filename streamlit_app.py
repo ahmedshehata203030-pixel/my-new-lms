@@ -19,10 +19,10 @@ WHITELIST_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sh
 # رابط الـ Web App لإرسال البيانات للجوجل شيت
 WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxIpDlNRgzsf_SamtDEzJfggmSBK6y7UhmShuyhNIKK89R4EH_8O2tjGYYrYuSNkLGr/exec"
 
-# مكون برمجى خفي (حاقن جافاسكريبت) لتوليد وحفظ بصمة الجهاز في المتصفح والـ Session
+# مكون برمجى خفي (حاقن جافاسكريبت) لتوليد وحفظ بصمة الجهاز في المتصفح والـ Session ومنع الـ Autofill الخاطئ
 def get_device_id():
     if "device_id" not in st.session_state:
-        # كود جافاسكريبت للتحقق من وجود المعرف في المتصفح أو توليد واحد جديد
+        # كود جافاسكريبت للتحقق من وجود المعرف في المتصفح أو توليد واحد جديد وضخه في حقل الـ password بدقة
         js_code = """
         <script>
         var d_id = localStorage.getItem('st_device_id');
@@ -30,17 +30,25 @@ def get_device_id():
             d_id = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
             localStorage.setItem('st_device_id', d_id);
         }
-        window.parent.postMessage({type: 'streamlit:setComponentValue', value: d_id}, '*');
+        var input = window.parent.document.querySelector('input[type="password"]');
+        if(input) {
+            input.value = d_id;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
         </script>
         """
         # حيلة برمجية بسيطة للحصول على القيمة الراجعة من المتصفح
         from streamlit.components.v1 import html
         st.write('<div style="display:none">', unsafe_allow_html=True)
-        device_token = st.text_input("dev_token_holder", key="dev_token_holder")
+        # جعل نوع الحقل password يمنع المتصفح تماماً من كتابة اسمك فيه تلقائياً
+        device_token = st.text_input("dev_token_holder", type="password", key="dev_token_holder")
         html(js_code, height=0)
         st.write('</div>', unsafe_allow_html=True)
         
         if device_token:
+            # خط دفاع ثانٍ في حالة عاند المتصفح وقام بكتابة نص عادي، يتم تصحيحه أوتوماتيكياً
+            if not device_token.startswith("dev_"):
+                device_token = f"dev_{uuid.uuid4().hex[:12]}"
             st.session_state.device_id = device_token
             return device_token
         return None
