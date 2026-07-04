@@ -360,9 +360,5 @@ elif st.session_state.current_view == "quiz":
                         except Exception as e:
                             st.error(f"خطأ في الإرسال للشيت: {e}")
 
-                        st.markdown("---")
-                        if (total_earned_degrees / total_quiz_degrees) >= 0.5:
-                            st.success(f"🎉 ممتاز يا {student_name}!")
-                        else:
-                            st.error(f"😞 حظ أوفر يا {student_name}!")
+                        
                         st.balloons()
