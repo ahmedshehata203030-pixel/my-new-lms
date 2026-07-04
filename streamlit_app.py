@@ -6,25 +6,34 @@ import pytz
 import re
 import time
 
-# --- 1. الروابط (ضع روابط الشيتات الـ 3 هنا) ---
+# --- 0. الإخفاء (لازم يكون أول حاجة عشان يخفي الـ Header فوراً) ---
+st.markdown("""
+    <style>
+    [data-testid="stHeaderActionElements"], header, .stAppDeployButton, #MainMenu, footer {display:none!important;}
+    </style>
+""", unsafe_allow_html=True)
+
+# --- 1. إعدادات الصفحة ---
+st.set_page_config(page_title="منصة المعمل", layout="wide")
+
+# --- 2. روابط الشيتات ---
 GRADE_URLS = {
     "الصف الاول الاعدادى": "https://docs.google.com/spreadsheets/d/11sa1GDAYCez4b17aI1hDPKJDtfj953ySj8OMYOxbzTI/edit?usp=sharing",
     "الصف الثانى الاعدادى": "https://docs.google.com/spreadsheets/d/1PInF4O2hFmc7kY430bL_n4KliezblGyk3peBMN4VJ9U/edit?usp=sharing",
-    "الصف الثالث الاعدادى": "رابط_شيت_ثالثة"
+    "الصف الثالث الاعدادى": "https://docs.google.com/spreadsheets/d/1btzo6mPj0GtCdHgvz5tTTKUe_3kgPit3YitobAj01Lc/edit?usp=sharing"
 }
 
-# --- 2. نظام اختيار الصف (الراوتر) ---
+# --- 3. نظام اختيار الصف ---
 if "SHEET_URL" not in st.session_state:
-    st.set_page_config(page_title="منصتي التعليمية", layout="wide")
     st.header("🎓 اختر صفك الدراسي للبدء")
     chosen_grade = st.selectbox("يرجى تحديد الصف:", list(GRADE_URLS.keys()))
-    if st.button("تأكيد الدخول "):
+    if st.button("تأكيد الدخول لهذا الصف"):
         st.session_state.SHEET_URL = GRADE_URLS[chosen_grade]
         st.session_state.grade_name = chosen_grade
         st.rerun()
     st.stop()
 
-# --- 3. المتغيرات المعتمدة على الصف ---
+# --- 4. المتغيرات المعتمدة على الصف ---
 SHEET_URL = st.session_state.SHEET_URL
 LESSONS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=lessons&v={int(time.time())}")
 QUIZZES_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=quizzes&v={int(time.time())}")
@@ -228,7 +237,7 @@ if not st.session_state.access_granted:
     st.stop()
 
 student_name = st.session_state.student_name
-st.sidebar.success(f"👤 مرحبًا بك  : {student_name}")
+st.sidebar.success(f"👤 مرحبًا بك يا هندسة: {student_name}")
 if st.sidebar.button("🔒 تسجيل الخروج"):
     st.session_state.access_granted = False
     st.rerun()
