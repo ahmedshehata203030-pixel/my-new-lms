@@ -186,8 +186,8 @@ def load_data():
                 ],
                 "correct": final_correct,
                 "degree": q_deg,
-                "start_at": row.get('startat', None),
-                "end_at": row.get('endat', None)
+                "start_at": row.get('startat', row.get('start_at', None)),
+                "end_at": row.get('endat', row.get('end_at', None))
             })
     except: quizzes = {}
     return courses, quizzes
