@@ -326,7 +326,7 @@ elif st.session_state.current_view == "quiz":
                         student_answers[i] = st.radio(f"اختر إجابة السؤال {i+1}:", options=available_options_for_radio, key=f"quiz_radio_q_{i}_{chosen_quiz}", horizontal=True)
                         st.markdown("---")
 
-                   if st.form_submit_button("📥 إرسال الإجابات وإنهاء الامتحان"):
+                    if st.form_submit_button("📥 إرسال الإجابات وإنهاء الامتحان"):
                         submit_time = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
                         
                         # حساب الدرجات
