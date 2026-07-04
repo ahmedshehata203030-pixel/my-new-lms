@@ -197,7 +197,7 @@ if not st.session_state.access_granted:
     st.stop()
 
 student_name = st.session_state.student_name
-st.sidebar.success(f"👤 مرحبًا بك يا هندسة: {student_name}")
+st.sidebar.success(f"👤مرحبًا بك يا : {student_name}")
 if st.sidebar.button("🔒 تسجيل الخروج"):
     st.session_state.access_granted = False
     st.rerun()
