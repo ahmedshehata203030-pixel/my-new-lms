@@ -50,7 +50,7 @@ WHITELIST_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sh
 # --- روابط الـ Web Apps لكل صف ---
 WEB_APP_URLS = {
     "الصف الاول الاعدادى": "https://script.google.com/macros/s/AKfycbxIpDlNRgzsf_SamtDEzJfggmSBK6y7UhmShuyhNIKK89R4EH_8O2tjGYYrYuSNkLGr/exec",
-    "الصف الثانى الاعدادى": "https://script.google.com/macros/s/AKfycby4d-WE-N9itTYYS7tm6FKHNwR0IQBCuxHTsl2lZ_k6ENqLHigmg0COKZJGvslxInVR/exec",
+    "الصف الثانى الاعدادى": "https://script.google.com/macros/s/AKfycbxZQht0d_wlKmdHTjVSx0H5elEmeMYHcfEPzfSsrcuk7h8V9z3ZsZcQ-_g40oIVABdA/exec",
     "الصف الثالث الاعدادى": "https://script.google.com/macros/s/AKfycbxkkWJjcwa2-O12vm-K86ZvMb8PBl30-vEAZwP-n1FtOldnFU-fgv5PZw9h460Hqvim/exec"
 }
 
