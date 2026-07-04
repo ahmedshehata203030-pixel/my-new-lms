@@ -8,7 +8,7 @@ import time
 
 # --- 1. الروابط (ضع روابط الشيتات الـ 3 هنا) ---
 GRADE_URLS = {
-    "https://docs.google.com/spreadsheets/d/11sa1GDAYCez4b17aI1hDPKJDtfj953ySj8OMYOxbzTI/edit?usp=sharing": "رابط_شيت_اولى",
+    "الصف الاول الاعدادى": "https://docs.google.com/spreadsheets/d/11sa1GDAYCez4b17aI1hDPKJDtfj953ySj8OMYOxbzTI/edit?usp=sharing",
     "الصف الثانى الاعدادى": "https://docs.google.com/spreadsheets/d/1PInF4O2hFmc7kY430bL_n4KliezblGyk3peBMN4VJ9U/edit?usp=sharing",
     "الصف الثالث الاعدادى": "رابط_شيت_ثالثة"
 }
