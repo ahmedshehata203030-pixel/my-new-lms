@@ -55,9 +55,15 @@ QUIZZES_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&shee
 ANSWERS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=student_results&v={int(time.time())}")
 WHITELIST_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=whitelist&v={int(time.time())}")
 
-# رابط الـ Web App لإرسال البيانات للجوجل شيت
-WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxIpDlNRgzsf_SamtDEzJfggmSBK6y7UhmShuyhNIKK89R4EH_8O2tjGYYrYuSNkLGr/exec"
+# --- روابط الـ Web Apps لكل صف ---
+WEB_APP_URLS = {
+    "الصف الاول الاعدادى": "https://script.google.com/macros/s/AKfycbxIpDlNRgzsf_SamtDEzJfggmSBK6y7UhmShuyhNIKK89R4EH_8O2tjGYYrYuSNkLGr/exec",
+    "الصف الثانى الاعدادى": "https://script.google.com/macros/s/AKfycby4d-WE-N9itTYYS7tm6FKHNwR0IQBCuxHTsl2lZ_k6ENqLHigmg0COKZJGvslxInVR/exec",
+    "الصف الثالث الاعدادى": "https://script.google.com/macros/s/AKfycbxt-xeothZO1BiJ5tfHzh59GqkHm545poQoOH3tibh61HldXRNvEcCFSftC0w-7QWXR/exec"
+}
 
+# ده الرابط اللي الكود هيستخدمه أوتوماتيك
+WEB_APP_URL = WEB_APP_URLS[st.session_state.grade_name]
 def clean_date_string(date_str):
     if not date_str or pd.isna(date_str) or str(date_str).lower() == 'nan' or str(date_str).strip() == '':
         return None
