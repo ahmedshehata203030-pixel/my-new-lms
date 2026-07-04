@@ -55,7 +55,7 @@ WEB_APP_URLS = {
 }
 
 # ده الرابط اللي الكود هيستخدمه أوتوماتيك
-WEB_APP_URL = WEB_APP_URLS[st.session_state.grade_name]
+
 def clean_date_string(date_str):
     if not date_str or pd.isna(date_str) or str(date_str).lower() == 'nan' or str(date_str).strip() == '':
         return None
@@ -329,9 +329,9 @@ elif st.session_state.current_view == "quiz":
                     if st.form_submit_button("📥 إرسال الإجابات وإنهاء الامتحان"):
                         submit_time = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
                         
+                        # حساب الدرجات
                         total_earned_degrees = 0.0
                         total_quiz_degrees = 0.0
-                        
                         for i, q in enumerate(questions):
                             selected_letter = str(student_answers[i]).strip().upper()
                             q_weight = q['degree']
@@ -342,22 +342,27 @@ elif st.session_state.current_view == "quiz":
                         display_earned = int(total_earned_degrees) if total_earned_degrees.is_integer() else total_earned_degrees
                         display_total = int(total_quiz_degrees) if total_quiz_degrees.is_integer() else total_quiz_degrees
 
-                        # هنا التعديل المهم: استخدام القاموس مباشرة
+                        # تحضير البيانات
                         payload = {
-                            "action": "submit_quiz", "student_name": student_name, "quiz_title": chosen_quiz,
-                            "score": display_earned, "start_time": st.session_state[session_key], "submit_time": submit_time
+                            "action": "submit_quiz", 
+                            "student_name": student_name, 
+                            "quiz_title": chosen_quiz,
+                            "score": display_earned, 
+                            "start_time": st.session_state[session_key], 
+                            "submit_time": submit_time
                         }
                         
                         try:
-                            # القاموس ده لازم يكون معرف فوق باسم WEB_APP_URLS
-                            correct_url = WEB_APP_URLS[st.session_state.grade_name]
-                            requests.post(correct_url, json=payload)
+                            # التعديل الجوهري هنا: بنختار الرابط بناءً على الصف المختار حالياً
+                            target_url = WEB_APP_URLS[st.session_state.grade_name]
+                            requests.post(target_url, json=payload)
+                            st.success(f"✅ تم الإرسال بنجاح! درجتك: {display_earned} من {display_total}")
                         except Exception as e:
-                            st.error(f"خطأ في الإرسال: {e}")
+                            st.error(f"خطأ في الإرسال للشيت: {e}")
 
                         st.markdown("---")
                         if (total_earned_degrees / total_quiz_degrees) >= 0.5:
-                            st.success(f"🎉 ممتاز يا {student_name}! درجتك الكلية: {display_earned} من {display_total}")
+                            st.success(f"🎉 ممتاز يا {student_name}!")
                         else:
-                            st.error(f"😞 للأسف يا {student_name} درجتك الكلية: {display_earned} من {display_total}")
+                            st.error(f"😞 حظ أوفر يا {student_name}!")
                         st.balloons()
