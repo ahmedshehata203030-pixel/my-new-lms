@@ -27,7 +27,7 @@ GRADE_URLS = {
 if "SHEET_URL" not in st.session_state:
     st.header("🎓 اختر صفك الدراسي للبدء")
     chosen_grade = st.selectbox("يرجى تحديد الصف:", list(GRADE_URLS.keys()))
-    if st.button("تأكيد الدخول لهذا الصف"):
+    if st.button("تأكيد الدخول  "):
         st.session_state.SHEET_URL = GRADE_URLS[chosen_grade]
         st.session_state.grade_name = chosen_grade
         st.rerun()
@@ -222,7 +222,7 @@ if "access_granted" not in st.session_state:
     st.session_state.access_granted = False
 
 if not st.session_state.access_granted:
-    st.subheader("🔒 تسجيل الدخول الحصري للطلاب")
+    st.subheader("🔒 تسجيل الدخول للطلاب")
     with st.form(key="login_form"):
         student_name_input = st.text_input("✍️ اسم الطالب الثلاثي:")
         student_password_input = st.text_input("🔑 الرقم السري:", type="password")
@@ -243,7 +243,7 @@ if not st.session_state.access_granted:
     st.stop()
 
 student_name = st.session_state.student_name
-st.sidebar.success(f"👤 مرحبًا بك يا هندسة: {student_name}")
+st.sidebar.success(f"👤 مرحبًا بك  : {student_name}")
 if st.sidebar.button("🔒 تسجيل الخروج"):
     st.session_state.access_granted = False
     st.rerun()
