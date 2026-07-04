@@ -265,7 +265,7 @@ if st.session_state.current_view == "sharh":
         chosen_course = st.selectbox("اختر الوحدة:", list(courses_db.keys()))
         lessons_available = courses_db[chosen_course]
         if not lessons_available:
-            st.info("👋 قريباً.. سيتم رفع دروس ومحاضرات هذا الكورس.")
+            st.info("👋 قريباً.. سيتم رفع دروس ومحتوى هذه الوحدة.")
         else:
             chosen_lesson = st.selectbox("اختر الدرس المراد مشاهدته:", [l['title'] for l in lessons_available])
             current_lesson = next(l for l in lessons_available if l['title'] == chosen_lesson)
@@ -278,7 +278,7 @@ if st.session_state.current_view == "sharh":
 elif st.session_state.current_view == "quiz":
     st.subheader("📝 قسم الامتحانات والتقييمات الذكية")
     if not quizzes_db:
-        st.info("👋 لا توجد امتحانات مرفوعة في الشيت حالياً...")
+        st.info("👋 لا توجد امتحانات على المنصة حالياً...")
     else:
         chosen_quiz = st.selectbox("اختر الامتحان المطلوب للدخول:", list(quizzes_db.keys()))
         cairo_tz = pytz.timezone('Africa/Cairo')
