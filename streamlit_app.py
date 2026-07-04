@@ -327,7 +327,32 @@ elif st.session_state.current_view == "quiz":
                         st.markdown("---")
 
                     if st.form_submit_button("📥 إرسال الإجابات وإنهاء الامتحان"):
-                        submit_time = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
+                        now_check = datetime.now(cairo_tz).replace(tzinfo=None)
+                        if end_dt and now_check > end_dt:
+                            st.error("🚫 عذراً، انتهى الوقت المسموح للإرسال!")
+                        else:
+                            submit_time = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
+                            total_earned_degrees = 0.0
+                            total_quiz_degrees = 0.0
+                            for i, q in enumerate(questions):
+                                selected_letter = str(student_answers[i]).strip().upper()
+                                q_weight = q['degree']
+                                total_quiz_degrees += q_weight
+                                if selected_letter == str(q['correct']).strip().upper():
+                                    total_earned_degrees += q_weight
+                            display_earned = int(total_earned_degrees) if total_earned_degrees.is_integer() else total_earned_degrees
+                            display_total = int(total_quiz_degrees) if total_quiz_degrees.is_integer() else total_quiz_degrees
+                            payload = {
+                                "action": "submit_quiz", "student_name": student_name, "quiz_title": chosen_quiz,
+                                "score": display_earned, "start_time": st.session_state[session_key], "submit_time": submit_time
+                            }
+                            try:
+                                target_url = WEB_APP_URLS[st.session_state.grade_name]
+                                requests.post(target_url, json=payload)
+                                st.success(f"✅ تم الإرسال بنجاح! درجتك: {display_earned} من {display_total}")
+                                st.balloons()
+                            except Exception as e:
+                                st.error(f"خطأ في الإرسال للشيت: {e}")
                         
                         # حساب الدرجات
                         total_earned_degrees = 0.0
