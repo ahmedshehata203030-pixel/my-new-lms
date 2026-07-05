@@ -298,7 +298,7 @@ elif st.session_state.current_view == "quiz":
             st.error(error_msg)
         else:
             if has_submitted_before(student_name, chosen_quiz):
-                st.error(f"❌ عذراً يا {student_name}، لقد قمت بأداء هذا الاختبار مسبقاً!يا كسمك")
+                st.error(f"❌ عذراً يا {student_name}، لقد قمت بأداء هذا الاختبار مسبقاً!")
             else:
                 session_key = f"start_{chosen_quiz}"
                 if session_key not in st.session_state:
