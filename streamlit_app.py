@@ -356,13 +356,5 @@ elif st.session_state.current_view == "quiz":
                             st.success(f"✅ تم إرسال إجاباتك بنجاح للصف: {st.session_state.grade_name}")
                         except Exception as e:
                             st.error(f"⚠️ حدث خطأ أثناء الإرسال: {e}")
-                        except: pass
-                            st.markdown("---")
-                        # حساب نسبة النجاح داخلياً فقط لتحديد تفعيل الـ success أو الـ error (أكبر من أو يساوي 50%)
-                        if (total_earned_degrees / total_quiz_degrees) >= 0.5:
-                            st.success(f"🎉 ممتاز يا {student_name}! درجتك الكلية: {display_earned} من {display_total}")
-                        else:
-                            st.error(f"😞 للأسف يا {student_name} درجتك الكلية: {display_earned} من {display_total}")
-
-                        
+                        except: pass 
                         st.balloons()
