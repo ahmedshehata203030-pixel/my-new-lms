@@ -350,11 +350,16 @@ elif st.session_state.current_view == "quiz":
                             "score": display_earned, "start_time": st.session_state[session_key], "submit_time": submit_time
                         }
                         try:
-                            # الكود ده بيجيب الرابط الصح بناءً على الصف اللي الطالب اختاره
+                            # الكود ده بيجيب الرابط الصح
                             current_web_app = WEB_APP_URLS[st.session_state.grade_name]
                             requests.post(current_web_app, json=payload)
-                            st.success(f"✅ تم إرسال إجاباتك بنجاح للصف: {st.session_state.grade_name}")
+                            
+                            # --- التعديل هنا: إضافة عرض الدرجة في رسالة النجاح ---
+                            st.success(f"✅ تم الإرسال بنجاح يا {student_name}!")
+                            st.info(f"📊 درجتك: {display_earned} من {display_total}")
+                            st.balloons()
+                            # ----------------------------------------------------
+                            
                         except Exception as e:
                             st.error(f"⚠️ حدث خطأ أثناء الإرسال: {e}")
-                        except: pass 
                         st.balloons()
