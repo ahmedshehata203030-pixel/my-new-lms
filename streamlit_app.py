@@ -327,15 +327,7 @@ elif st.session_state.current_view == "quiz":
                         st.markdown("---")
 
                     if st.form_submit_button("📥 إرسال الإجابات وإنهاء الامتحان"):
-                        # --- DEBUG: هنشوف السيرفر شايف إيه دلوقتي ---
-                        now_check = datetime.now(cairo_tz).replace(tzinfo=None)
-                        end_dt_debug = clean_date_string(questions[0].get("end_at"))
-                        st.write(f"--- معلومات الوقت ---")
-                        st.write(f"الوقت الحالي (سيرفر): {now_check}")
-                        st.write(f"وقت انتهاء الامتحان من الشيت: {end_dt_debug}")
-                        st.write(f"هل الوقت الحالي أكبر؟ {now_check > end_dt_debug if end_dt_debug else 'غير معروف'}")
-                        # ---------------------------------------------
-                        
+                         
                         submit_time = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
                         total_earned_degrees = 0.0
                         total_quiz_degrees = 0.0
@@ -357,7 +349,13 @@ elif st.session_state.current_view == "quiz":
                             "action": "submit_quiz", "student_name": student_name, "quiz_title": chosen_quiz,
                             "score": display_earned, "start_time": st.session_state[session_key], "submit_time": submit_time
                         }
-                        try: requests.post(WEB_APP_URL, json=payload)
+                        try:
+                            # الكود ده بيجيب الرابط الصح بناءً على الصف اللي الطالب اختاره
+                            current_web_app = WEB_APP_URLS[st.session_state.grade_name]
+                            requests.post(current_web_app, json=payload)
+                            st.success(f"✅ تم إرسال إجاباتك بنجاح للصف: {st.session_state.grade_name}")
+                        except Exception as e:
+                            st.error(f"⚠️ حدث خطأ أثناء الإرسال: {e}")
                         except: pass
 
                         st.markdown("---")
