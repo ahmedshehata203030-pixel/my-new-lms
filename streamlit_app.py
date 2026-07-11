@@ -14,10 +14,13 @@ IMAGE_URL = "https://raw.githubusercontent.com/ahmedshehata203030-pixel/ahhhhh/m
 # --- 2. الستايل والإخفاء ---
 st.markdown(f"""
     <style>
+    /* الإخفاء العام */
     [data-testid="stHeaderActionElements"], header, .stAppDeployButton, #MainMenu, footer, 
     a[href*="github.com"], button[title="View source"], [class*="viewerBadge"], [data-testid="stActionButton"] {{
         display: none !important; visibility: hidden !important;
     }}
+    
+    /* الخلفية */
     [data-testid="stAppViewContainer"] {{
         background-image: url("{IMAGE_URL}");
         background-size: cover; background-position: center; background-attachment: fixed;
@@ -26,9 +29,22 @@ st.markdown(f"""
         content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
         background-color: rgba(255, 255, 255, 0.7); z-index: 0;
     }}
-    div.stButton > button {{ width: 100% !important; height: 110px !important; font-size: 26px !important; font-weight: bold !important; color: white !important; border-radius: 15px !important; }}
-    div[data-testid="stHorizontalBlock"] > div:nth-of-type(1) div.stButton > button {{ background-color: #1A365D !important; }}
-    div[data-testid="stHorizontalBlock"] > div:nth-of-type(2) div.stButton > button {{ background-color: #064E3B !important; }}
+
+    /* التنسيق العام لكل الأزرار (النص الآن أسود) */
+    div.stButton > button {{ 
+        width: 100% !important; 
+        height: 110px !important; 
+        font-size: 26px !important; 
+        font-weight: bold !important; 
+        color: black !important; /* تم تعديل اللون للأسود */
+        background-color: #d1d5db !important; /* خلفية رمادية فاتحة لضمان ظهور النص الأسود */
+        border: 2px solid #000000 !important; /* إطار أسود للوضوح */
+        border-radius: 15px !important; 
+    }}
+
+    /* الألوان الخاصة بأزرار الشرح والامتحان (تعديل الخلفية لتناسب النص الأسود) */
+    div[data-testid="stHorizontalBlock"] > div:nth-of-type(1) div.stButton > button {{ background-color: #a3bffa !important; }}
+    div[data-testid="stHorizontalBlock"] > div:nth-of-type(2) div.stButton > button {{ background-color: #a7f3d0 !important; }}
     </style>
 """, unsafe_allow_html=True)
 
