@@ -6,42 +6,33 @@ import pytz
 import re
 import time
 
-# --- 1. الإعدادات والستايل (يجب أن يكونا أول شيء) ---
+# --- 1. الإعدادات الأساسية ---
 st.set_page_config(page_title="منصة المعمل", layout="wide")
 
 IMAGE_URL = "https://raw.githubusercontent.com/ahmedshehata203030-pixel/ahhhhh/main/%D9%8A%D8%A8.jpg"
 
+# --- 2. الستايل والإخفاء ---
 st.markdown(f"""
     <style>
-    /* إخفاء كامل للهيدر والعناصر غير المرغوبة */
     [data-testid="stHeaderActionElements"], header, .stAppDeployButton, #MainMenu, footer, 
     a[href*="github.com"], button[title="View source"], [class*="viewerBadge"], [data-testid="stActionButton"] {{
         display: none !important; visibility: hidden !important;
     }}
-    
-    /* الخلفية */
     [data-testid="stAppViewContainer"] {{
         background-image: url("{IMAGE_URL}");
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
+        background-size: cover; background-position: center; background-attachment: fixed;
     }}
-    
     [data-testid="stAppViewContainer"]::before {{
         content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
         background-color: rgba(255, 255, 255, 0.7); z-index: 0;
     }}
-
-    /* تنسيق الأزرار */
-    div[data-testid="stHorizontalBlock"] {{ display: flex !important; justify-content: center !important; gap: 25px !important; }}
     div.stButton > button {{ width: 100% !important; height: 110px !important; font-size: 26px !important; font-weight: bold !important; color: white !important; border-radius: 15px !important; }}
     div[data-testid="stHorizontalBlock"] > div:nth-of-type(1) div.stButton > button {{ background-color: #1A365D !important; }}
     div[data-testid="stHorizontalBlock"] > div:nth-of-type(2) div.stButton > button {{ background-color: #064E3B !important; }}
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. الإعدادات ---
+# --- 3. الروابط ---
 GRADE_URLS = {
     "الصف الاول الاعدادى": "https://docs.google.com/spreadsheets/d/11sa1GDAYCez4b17aI1hDPKJDtfj953ySj8OMYOxbzTI/edit?usp=sharing",
     "الصف الثانى الاعدادى": "https://docs.google.com/spreadsheets/d/1PInF4O2hFmc7kY430bL_n4KliezblGyk3peBMN4VJ9U/edit?usp=sharing",
@@ -53,6 +44,38 @@ WEB_APP_URLS = {
     "الصف الثانى الاعدادى": "https://script.google.com/macros/s/AKfycbxZQht0d_wlKmdHTjVSx0H5elEmeMYHcfEPzfSsrcuk7h8V9z3ZsZcQ-_g40oIVABdA/exec",
     "الصف الثالث الاعدادى": "https://script.google.com/macros/s/AKfycbxkkWJjcwa2-O12vm-K86ZvMb8PBl30-vEAZwP-n1FtOldnFU-fgv5PZw9h460Hqvim/exec"
 }
+
+# --- 4. نظام اختيار الصف (الخطوة الأهم) ---
+if "SHEET_URL" not in st.session_state:
+    st.header("🎓 اختر صفك الدراسي للبدء")
+    chosen_grade = st.selectbox("يرجى تحديد الصف:", list(GRADE_URLS.keys()))
+    if st.button("تأكيد الدخول"):
+        st.session_state.SHEET_URL = GRADE_URLS[chosen_grade]
+        st.session_state.grade_name = chosen_grade
+        st.rerun()
+    st.stop()
+
+# --- 5. تعريف المتغيرات بناءً على اختيار الطالب ---
+SHEET_URL = st.session_state.SHEET_URL
+ts = int(time.time())
+LESSONS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=lessons&v={ts}")
+QUIZZES_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=quizzes&v={ts}")
+ANSWERS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=student_results&v={ts}")
+WHITELIST_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=whitelist&v={ts}")
+
+# كسر كاش السيرفر لضمان قراءة البيانات اللحظية من الشيت
+LESSONS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=lessons&v={int(time.time())}")
+QUIZZES_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=quizzes&v={int(time.time())}")
+ANSWERS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=student_results&v={int(time.time())}")
+WHITELIST_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=whitelist&v={int(time.time())}")
+
+# --- روابط الـ Web Apps لكل صف ---
+WEB_APP_URLS = {
+    "الصف الاول الاعدادى": "https://script.google.com/macros/s/AKfycbxIpDlNRgzsf_SamtDEzJfggmSBK6y7UhmShuyhNIKK89R4EH_8O2tjGYYrYuSNkLGr/exec",
+    "الصف الثانى الاعدادى": "https://script.google.com/macros/s/AKfycbxZQht0d_wlKmdHTjVSx0H5elEmeMYHcfEPzfSsrcuk7h8V9z3ZsZcQ-_g40oIVABdA/exec",
+    "الصف الثالث الاعدادى": "https://script.google.com/macros/s/AKfycbxkkWJjcwa2-O12vm-K86ZvMb8PBl30-vEAZwP-n1FtOldnFU-fgv5PZw9h460Hqvim/exec"
+}
+
 # ده الرابط اللي الكود هيستخدمه أوتوماتيك
 
 def clean_date_string(date_str):
