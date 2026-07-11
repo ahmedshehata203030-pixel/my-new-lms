@@ -6,6 +6,43 @@ import pytz
 import re
 import time
 
+# --- ضع رابط صورتك هنا ---
+IMAGE_URL = "https://github.com/ahmedshehata203030-pixel/ahhhhh/blob/main/%D9%8A%D8%A8.jpg"
+
+# --- إعدادات الصفحة والخلفية ---
+st.set_page_config(page_title="منصة المعمل", layout="wide")
+
+st.markdown(f"""
+    <style>
+    /* تطبيق الخلفية */
+    [data-testid="stAppViewContainer"] {{
+        background-image: url("{IMAGE_URL}");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }}
+    /* طبقة شفافة لزيادة وضوح النصوص */
+    [data-testid="stAppViewContainer"]::before {{
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(255, 255, 255, 0.7);
+        z-index: 0;
+    }}
+    /* إخفاء العناصر */
+    [data-testid="stHeaderActionElements"], header, .stAppDeployButton, #MainMenu, footer {{display:none!important;}}
+    div[data-testid="stHorizontalBlock"] {{ display: flex !important; justify-content: center !important; gap: 25px !important; }}
+    div.stButton > button {{ width: 100% !important; height: 110px !important; font-size: 26px !important; font-weight: bold !important; color: white !important; border-radius: 15px !important; }}
+    div[data-testid="stHorizontalBlock"] > div:nth-of-type(1) div.stButton > button {{ background-color: #1A365D !important; }}
+    div[data-testid="stHorizontalBlock"] > div:nth-of-type(2) div.stButton > button {{ background-color: #064E3B !important; }}
+    </style>
+""", unsafe_allow_html=True)
+
+# --- كمل باقي الكود الخاص بك من هنا ---
 # --- 0. الإخفاء (لازم يكون أول حاجة عشان يخفي الـ Header فوراً) ---
 st.markdown("""
     <style>
