@@ -6,16 +6,21 @@ import pytz
 import re
 import time
 
-# --- ضع رابط صورتك المباشر هنا ---
+# --- الرابط الخاص بصورتك ---
 IMAGE_URL = "https://github.com/ahmedshehata203030-pixel/ahhhhh/blob/main/%D9%8A%D8%A8.jpg"
 
-# --- 1. إعدادات الصفحة ---
+# --- 1. الإخفاء والخلفية (في أول الملف لضمان عدم ظهور أي شيء قبلها) ---
 st.set_page_config(page_title="منصة المعمل", layout="wide")
 
-# --- 2. كود الخلفية والستايل الموحد ---
 st.markdown(f"""
     <style>
-    /* خلفية المنصة */
+    /* 1. إخفاء الهيدر وكل عناصر القائمة العلوية */
+    [data-testid="stHeaderActionElements"], header, .stAppDeployButton, #MainMenu, footer, 
+    a[href*="github.com"], button[title="View source"], [class*="viewerBadge"] {{
+        display: none !important;
+    }}
+
+    /* 2. تطبيق الخلفية */
     [data-testid="stAppViewContainer"] {{
         background-image: url("{IMAGE_URL}");
         background-size: cover;
@@ -23,7 +28,8 @@ st.markdown(f"""
         background-repeat: no-repeat;
         background-attachment: fixed;
     }}
-    /* طبقة شفافة لضمان قراءة النصوص */
+
+    /* 3. طبقة بيضاء شفافة لتوضيح النصوص */
     [data-testid="stAppViewContainer"]::before {{
         content: "";
         position: absolute;
@@ -34,6 +40,14 @@ st.markdown(f"""
         background-color: rgba(255, 255, 255, 0.7);
         z-index: 0;
     }}
+
+    /* 4. تنسيق الأزرار (نفس تنسيقك الأصلي) */
+    div[data-testid="stHorizontalBlock"] {{ display: flex !important; justify-content: center !important; gap: 25px !important; }}
+    div.stButton > button {{ width: 100% !important; height: 110px !important; font-size: 26px !important; font-weight: bold !important; color: white !important; border-radius: 15px !important; }}
+    div[data-testid="stHorizontalBlock"] > div:nth-of-type(1) div.stButton > button {{ background-color: #1A365D !important; }}
+    div[data-testid="stHorizontalBlock"] > div:nth-of-type(2) div.stButton > button {{ background-color: #064E3B !important; }}
+    </style>
+""", unsafe_allow_html=True)
 # --- 0. الإخفاء (لازم يكون أول حاجة عشان يخفي الـ Header فوراً) ---
 st.markdown("""
     <style>
