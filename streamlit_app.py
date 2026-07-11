@@ -49,7 +49,7 @@ WEB_APP_URLS = {
 if "SHEET_URL" not in st.session_state:
     st.header("🎓 اختر صفك الدراسي للبدء")
     chosen_grade = st.selectbox("يرجى تحديد الصف:", list(GRADE_URLS.keys()))
-    if st.button("تأكيد الدخول"):
+    if st.button("تأكيد الدخول", key="confirm_btn"):
         st.session_state.SHEET_URL = GRADE_URLS[chosen_grade]
         st.session_state.grade_name = chosen_grade
         st.rerun()
