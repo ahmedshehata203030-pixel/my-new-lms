@@ -9,7 +9,7 @@ import time
 # --- 1. الإعدادات الأساسية ---
 st.set_page_config(page_title="منصة المعمل", layout="wide")
 
-IMAGE_URL = "https://raw.githubusercontent.com/ahmedshehata203030-pixel/ahhhhh/main/%D9%8A%D8%A8.jpg"
+IMAGE_URL = "https://github.com/ahmedshehata203030-pixel/dfd/blob/main/uu.png"
 
 # --- 2. الستايل والإخفاء ---
 st.markdown(f"""
