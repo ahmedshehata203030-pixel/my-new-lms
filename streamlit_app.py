@@ -1,26 +1,26 @@
 import streamlit as st
 import pandas as pd
 import requests
-from datetime import datetime
-import pytz
 import re
 import time
+from datetime import datetime
+import pytz
 
-# --- 1. الإعدادات الأساسية ---
-st.set_page_config(page_title="منصة المعمل", layout="wide")
+# --- 1. الإعدادات الأساسية (يجب أن تكون أول أمر Streamlit) ---
+st.set_page_config(page_title="بوابة الطالب التعليمية", layout="wide")
 
 IMAGE_URL = "https://github.com/ahmedshehata203030-pixel/ahm/blob/main/%D9%8A%D8%A8.jpg"
 
-# --- 2. الستايل والإخفاء ---
+# --- 2. الستايل والإخفاء وتنسيق الأزرار ---
 st.markdown(f"""
     <style>
-    /* الإخفاء العام */
+    /* الإخفاء العام للعناصر الافتراضية */
     [data-testid="stHeaderActionElements"], header, .stAppDeployButton, #MainMenu, footer, 
     a[href*="github.com"], button[title="View source"], [class*="viewerBadge"], [data-testid="stActionButton"] {{
         display: none !important; visibility: hidden !important;
     }}
     
-    /* الخلفية */
+    /* خلفية التطبيق */
     [data-testid="stAppViewContainer"] {{
         background-image: url("{IMAGE_URL}");
         background-size: cover; background-position: center; background-attachment: fixed;
@@ -30,25 +30,28 @@ st.markdown(f"""
         background-color: rgba(255, 255, 255, 0.7); z-index: 0;
     }}
 
-    /* التنسيق العام لكل الأزرار (النص الآن أسود) */
+    /* التنسيق الموحد لأزرار التنقل الرئيسية */
+    div[data-testid="stHorizontalBlock"] {{
+        display: flex !important; justify-content: center !important; gap: 25px !important;
+    }}
     div.stButton > button {{ 
         width: 100% !important; 
         height: 110px !important; 
         font-size: 26px !important; 
         font-weight: bold !important; 
-        color: black !important; /* تم تعديل اللون للأسود */
-        background-color: #d1d5db !important; /* خلفية رمادية فاتحة لضمان ظهور النص الأسود */
-        border: 2px solid #000000 !important; /* إطار أسود للوضوح */
+        color: black !important; 
+        background-color: #d1d5db !important; 
+        border: 2px solid #000000 !important; 
         border-radius: 15px !important; 
     }}
 
-    /* الألوان الخاصة بأزرار الشرح والامتحان (تعديل الخلفية لتناسب النص الأسود) */
+    /* ألوان خاصة ومميزة لكل من زر الشرح وزر الامتحان لسهولة التنقل */
     div[data-testid="stHorizontalBlock"] > div:nth-of-type(1) div.stButton > button {{ background-color: #a3bffa !important; }}
     div[data-testid="stHorizontalBlock"] > div:nth-of-type(2) div.stButton > button {{ background-color: #a7f3d0 !important; }}
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. الروابط ---
+# --- 3. الروابط وقواعد البيانات ---
 GRADE_URLS = {
     "الصف الاول الاعدادى": "https://docs.google.com/spreadsheets/d/11sa1GDAYCez4b17aI1hDPKJDtfj953ySj8OMYOxbzTI/edit?usp=sharing",
     "الصف الثانى الاعدادى": "https://docs.google.com/spreadsheets/d/1PInF4O2hFmc7kY430bL_n4KliezblGyk3peBMN4VJ9U/edit?usp=sharing",
@@ -61,7 +64,7 @@ WEB_APP_URLS = {
     "الصف الثالث الاعدادى": "https://script.google.com/macros/s/AKfycbxkkWJjcwa2-O12vm-K86ZvMb8PBl30-vEAZwP-n1FtOldnFU-fgv5PZw9h460Hqvim/exec"
 }
 
-# --- 4. نظام اختيار الصف (الخطوة الأهم) ---
+# --- 4. نظام اختيار الصف الدراسي ---
 if "SHEET_URL" not in st.session_state:
     st.header("🎓 اختر صفك الدراسي للبدء")
     chosen_grade = st.selectbox("يرجى تحديد الصف:", list(GRADE_URLS.keys()))
@@ -71,7 +74,7 @@ if "SHEET_URL" not in st.session_state:
         st.rerun()
     st.stop()
 
-# --- 5. تعريف المتغيرات بناءً على اختيار الطالب ---
+# --- 5. إعداد روابط الشيت اللحظية (Cache Busting) ---
 SHEET_URL = st.session_state.SHEET_URL
 ts = int(time.time())
 LESSONS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=lessons&v={ts}")
@@ -79,26 +82,11 @@ QUIZZES_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&shee
 ANSWERS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=student_results&v={ts}")
 WHITELIST_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=whitelist&v={ts}")
 
-# كسر كاش السيرفر لضمان قراءة البيانات اللحظية من الشيت
-LESSONS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=lessons&v={int(time.time())}")
-QUIZZES_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=quizzes&v={int(time.time())}")
-ANSWERS_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=student_results&v={int(time.time())}")
-WHITELIST_CSV = SHEET_URL.replace("/edit?usp=sharing", f"/gviz/tq?tqx=out:csv&sheet=whitelist&v={int(time.time())}")
-
-# --- روابط الـ Web Apps لكل صف ---
-WEB_APP_URLS = {
-    "الصف الاول الاعدادى": "https://script.google.com/macros/s/AKfycbxIpDlNRgzsf_SamtDEzJfggmSBK6y7UhmShuyhNIKK89R4EH_8O2tjGYYrYuSNkLGr/exec",
-    "الصف الثانى الاعدادى": "https://script.google.com/macros/s/AKfycbxZQht0d_wlKmdHTjVSx0H5elEmeMYHcfEPzfSsrcuk7h8V9z3ZsZcQ-_g40oIVABdA/exec",
-    "الصف الثالث الاعدادى": "https://script.google.com/macros/s/AKfycbxkkWJjcwa2-O12vm-K86ZvMb8PBl30-vEAZwP-n1FtOldnFU-fgv5PZw9h460Hqvim/exec"
-}
-
-# ده الرابط اللي الكود هيستخدمه أوتوماتيك
-
+# --- 6. الدوال المساعدة ---
 def clean_date_string(date_str):
     if not date_str or pd.isna(date_str) or str(date_str).lower() == 'nan' or str(date_str).strip() == '':
         return None
-    s = str(date_str).strip()
-    s = s.replace('/', '-')
+    s = str(date_str).strip().replace('/', '-')
     s = re.sub(r'\s+', ' ', s)
     is_pm = 'م' in s
     is_am = 'ص' in s
@@ -157,6 +145,9 @@ def has_submitted_before(student_name, quiz_title):
     return False
 
 def load_data():
+    courses = {}
+    quizzes = {}
+    
     try:
         lessons_df = pd.read_csv(LESSONS_CSV, dtype=str)
         raw_columns = [str(c).strip() for c in lessons_df.columns]
@@ -166,7 +157,6 @@ def load_data():
         v_url_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "video" in c or "فيديو" in c))]
         p_url_col = raw_columns[normalized_columns.index(next(c for c in normalized_columns if "pdf" in c or "ملف" in c))]
 
-        courses = {}
         for idx, row in lessons_df.iterrows():
             c_title = force_string(row.get(c_title_col, ''))
             if not c_title: continue
@@ -176,7 +166,7 @@ def load_data():
                 "video": force_string(row.get(v_url_col, '')),
                 "pdf": force_string(row.get(p_url_col, ''))
             })
-    except: courses = {}
+    except: pass
 
     try:
         quizzes_df = pd.read_csv(QUIZZES_CSV, dtype=str)
@@ -186,7 +176,7 @@ def load_data():
         q_title_col = raw_q_columns[norm_q_columns.index(next(c for c in norm_q_columns if "quiz" in c or "امتحان" in c))]
         q_text_col = raw_q_columns[norm_q_columns.index(next(c for c in norm_q_columns if "question" in c or "سؤال" in c))]
 
-        opt_a_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "opta" in c or "opt_a" in c or (c.endswith("a") and len(c)<=5)), None)
+        opt_a_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "opta" in c or "opt_b" in c or (c.endswith("a") and len(c)<=5)), None)
         opt_b_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "optb" in c or "opt_b" in c or (c.endswith("b") and len(c)<=5)), None)
         opt_c_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "optc" in c or "opt_c" in c or (c.endswith("c") and len(c)<=5)), None)
         opt_d_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "optd" in c or "opt_d" in c or (c.endswith("d") and len(c)<=5)), None)
@@ -194,7 +184,6 @@ def load_data():
         degree_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "degree" in c or "درج" in c or "درجه" in c), None)
         correct_col = next((raw_q_columns[i] for i, c in enumerate(norm_q_columns) if "correct" in c or "إجابة" in c), None)
 
-        quizzes = {}
         for _, row in quizzes_df.iterrows():
             q_title = force_string(row.get(q_title_col, ''))
             if not q_title: continue
@@ -204,7 +193,6 @@ def load_data():
             final_correct = raw_correct[-1] if raw_correct.startswith('OPT') else raw_correct
 
             try:
-                # محاولة قراءة الدرجة كـ float، ولو الحقل فاضي أو فيه مشكلة بنخليه 1.0 تلقائي
                 val_deg = row.get(degree_col, "1")
                 if pd.isna(val_deg) or str(val_deg).strip() == "" or str(val_deg).lower() == 'nan':
                     q_deg = 1.0
@@ -227,25 +215,10 @@ def load_data():
                 "start_at": row.get('startat', row.get('start_at', None)),
                 "end_at": row.get('endat', row.get('end_at', None))
             })
-    except: quizzes = {}
+    except: pass
     return courses, quizzes
 
-st.set_page_config(page_title="منصتي التعليمية", layout="wide")
-
-st.markdown("""
-    <style>
-    [data-testid="stHeaderActionElements"] { display: none !important; visibility: hidden !important; }
-    header[data-testid="stHeader"] button { display: none !important; visibility: hidden !important; }
-    a[href*="github.com"], button[title="View source"], .stAppDeployButton, [class*="viewerBadge"], .viewerBadge_link__1S137, [data-testid="stActionButton"] { display: none !important; visibility: hidden !important; }
-    header[data-testid="stHeader"] button[aria-label="Manage app"], header[data-testid="stHeader"] button[aria-label="Share this app"] { display: none !important; visibility: hidden !important; }
-
-    div[data-testid="stHorizontalBlock"] { display: flex !important; justify-content: center !important; gap: 25px !important; }
-    div.stButton > button { width: 100% !important; height: 110px !important; font-size: 26px !important; font-weight: bold !important; color: white !important; border-radius: 15px !important; }
-    div[data-testid="stHorizontalBlock"] > div:nth-of-type(1) div.stButton > button { background-color: #1A365D !important; }
-    div[data-testid="stHorizontalBlock"] > div:nth-of-type(2) div.stButton > button { background-color: #064E3B !important; }
-    </style>
-""", unsafe_allow_html=True)
-
+# --- 7. واجهة تسجيل دخول الطالب ---
 st.header("🎓 بوابة الطالب التعليمية")
 
 if "access_granted" not in st.session_state:
@@ -272,23 +245,29 @@ if not st.session_state.access_granted:
                     st.error(msg)
     st.stop()
 
+# --- 8. القائمة الجانبية ومحتوى المنصة الرئيسي ---
 student_name = st.session_state.student_name
-st.sidebar.success(f"👤 مرحبًا بك  : {student_name}")
+st.sidebar.success(f"👤 مرحبًا بك : {student_name}")
 if st.sidebar.button("🔒 تسجيل الخروج"):
     st.session_state.access_granted = False
     st.rerun()
 
 courses_db, quizzes_db = load_data()
 
-if "current_view" not in st.session_state: st.session_state.current_view = "sharh"
+if "current_view" not in st.session_state: 
+    st.session_state.current_view = "sharh"
 
+# أزرار التنقل العلوية
 box_sharh, box_quiz = st.columns(2)
 with box_sharh:
-    if st.button("📺 الشرح والدروس", key="btn_sharh"): st.session_state.current_view = "sharh"
+    if st.button("📺 الشرح والدروس", key="btn_sharh"): 
+        st.session_state.current_view = "sharh"
 with box_quiz:
-    if st.button("📝 الامتحانات والاختبارات", key="btn_quiz"): st.session_state.current_view = "quiz"
+    if st.button("📝 الامتحانات والاختبارات", key="btn_quiz"): 
+        st.session_state.current_view = "quiz"
 st.markdown("---")
 
+# عرض المحاضرات والدروس
 if st.session_state.current_view == "sharh":
     st.subheader("📺 قسم الدروس وفيديوهات الشرح")
     if courses_db:
@@ -299,12 +278,16 @@ if st.session_state.current_view == "sharh":
         else:
             chosen_lesson = st.selectbox("اختر الدرس المراد مشاهدته:", [l['title'] for l in lessons_available])
             current_lesson = next(l for l in lessons_available if l['title'] == chosen_lesson)
-            if current_lesson['video']: st.video(current_lesson['video'])
+            if current_lesson['video']: 
+                st.video(current_lesson['video'])
             if current_lesson['pdf']:
                 st.markdown("---")
                 st.write("📄 **المرفقات والمذكرات الخاصة بالدرس:**")
                 st.link_button("📂 اضغط هنا لفتح وتحميل ملف الـ PDF", current_lesson['pdf'], use_container_width=True)
+    else:
+        st.info("👋 لا توجد دروس مرفوعة حالياً...")
 
+# عرض نظام الاختبارات الذكي
 elif st.session_state.current_view == "quiz":
     st.subheader("📝 قسم الامتحانات والتقييمات الذكية")
     if not quizzes_db:
@@ -348,7 +331,6 @@ elif st.session_state.current_view == "quiz":
 
                     student_answers = {}
                     for i, q in enumerate(questions):
-                        # عرض الدرجة الفردية للسؤال بشكل شيك (مثال: [الدرجة: 5])
                         st.markdown(f"#### **سؤال {i+1}: {q['question']}** *[الدرجة: {int(q['degree']) if q['degree'].is_integer() else q['degree']}]*")
 
                         letters = ["A", "B", "C", "D"]
@@ -357,15 +339,12 @@ elif st.session_state.current_view == "quiz":
                             opt_text = str(q['options'][idx]).strip()
                             if opt_text != "" and opt_text.lower() != 'nan':
                                 st.write(f"🔹 **{letter}:** {opt_text}")
-                                available_options_for_radio.append(letter)
-                            else:
-                                available_options_for_radio.append(letter)
+                            available_options_for_radio.append(letter)
 
                         student_answers[i] = st.radio(f"اختر إجابة السؤال {i+1}:", options=available_options_for_radio, key=f"quiz_radio_q_{i}_{chosen_quiz}", horizontal=True)
                         st.markdown("---")
 
                     if st.form_submit_button("📥 إرسال الإجابات وإنهاء الامتحان"):
-                         
                         submit_time = datetime.now(cairo_tz).strftime("%Y-%m-%d %H:%M:%S")
                         total_earned_degrees = 0.0
                         total_quiz_degrees = 0.0
@@ -378,26 +357,24 @@ elif st.session_state.current_view == "quiz":
                             if selected_letter == str(q['correct']).strip().upper():
                                 total_earned_degrees += q_weight
 
-                        # تنسيق الدرجة النهائية لعرضها بدون كسور لو كانت رقم صحيح
                         display_earned = int(total_earned_degrees) if total_earned_degrees.is_integer() else total_earned_degrees
                         display_total = int(total_quiz_degrees) if total_quiz_degrees.is_integer() else total_quiz_degrees
 
-                        # 💡 التعديل الجوهري: إرسال المجموع الفعلي مباشرة كـ رقم للشيت
                         payload = {
-                            "action": "submit_quiz", "student_name": student_name, "quiz_title": chosen_quiz,
-                            "score": display_earned, "start_time": st.session_state[session_key], "submit_time": submit_time
+                            "action": "submit_quiz", 
+                            "student_name": student_name, 
+                            "quiz_title": chosen_quiz,
+                            "score": display_earned, 
+                            "start_time": st.session_state[session_key], 
+                            "submit_time": submit_time
                         }
                         try:
-                            # الكود ده بيجيب الرابط الصح
                             current_web_app = WEB_APP_URLS[st.session_state.grade_name]
                             requests.post(current_web_app, json=payload)
                             
-                            # --- التعديل هنا: إضافة عرض الدرجة في رسالة النجاح ---
                             st.success(f"✅ تم الإرسال بنجاح يا {student_name}!")
                             st.info(f"📊 درجتك: {display_earned} من {display_total}")
                             st.balloons()
-                            # ----------------------------------------------------
                             
                         except Exception as e:
                             st.error(f"⚠️ حدث خطأ أثناء الإرسال: {e}")
-                        st.balloons()
