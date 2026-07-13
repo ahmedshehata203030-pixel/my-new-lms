@@ -9,7 +9,7 @@ import pytz
 # --- 1. الإعدادات الأساسية (يجب أن تكون أول أمر Streamlit) ---
 st.set_page_config(page_title="بوابة الطالب التعليمية", layout="wide")
 
-IMAGE_URL = "https://raw.githubusercontent.com/ahmedshehata203030-pixel/ahm/main/%D9%8A%D8%A8.jpg"
+IMAGE_URL = "https://github.com/ahmedshehata203030-pixel/ahm/blob/main/uu.png"
 
 # --- 2. الستايل والإخفاء وتنسيق الأزرار ---
 st.markdown(f"""
